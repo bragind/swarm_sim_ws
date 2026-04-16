@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>swarm_perception</name>
+  <version>1.0.0</version>
+  <description>Perception and sensor fusion nodes for swarm</description>
+  <maintainer email="dev@swarm.ru">Dev</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>swarm_msgs</depend>
+
+  <test_depend>ament_cmake_pytest</test_depend>
+
+  <export><build_type>ament_python</build_type></export>
+</package>

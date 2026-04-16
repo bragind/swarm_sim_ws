@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  swarm-sim:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: swarm_simulation
+    volumes:
+      - ../src:/home/swarm/ros2_ws/src
+      - ../sim_storage:/home/swarm/sim_storage
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - DISPLAY=${DISPLAY}
+      - ROS_DOMAIN_ID=42
+      - CYCLONEDDS_URI=file:///home/swarm/cyclonedds.xml
+    network_mode: host
+    ipc: host
+    privileged: true
+    stdin_open: true
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

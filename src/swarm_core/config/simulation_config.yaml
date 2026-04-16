@@ -1,0 +1,25 @@
+simulation:
+  step_size: 0.01                # с
+  max_real_time_factor: 4.0      # ускорение симуляции
+  physics_engine: "dart"         # dart/ode/bullet
+  gravity: [0.0, 0.0, -9.81]
+
+world:
+  name: "experimental_polygon"
+  ground_plane: true
+  static_obstacles: true
+  dynamic_obstacles: false       # включается в сценариях S2/S6
+
+scenarios:
+  S1: {description: "Базовая навигация", num_agents: [3, 10], obstacle_density: 0.05}
+  S2: {description: "Плотное окружение", num_agents: [5, 15], obstacle_density: 0.35}
+  S3: {description: "Деградация связи", packet_loss: [0.0, 0.25], latency_ms: [20, 200]}
+  S4: {description: "Отказ агентов", failure_rate: [0.0, 0.3], failure_mode: "random"}
+  S5: {description: "Вычислительная деградация", cpu_load: [1.0, 0.25]}
+  S6: {description: "Комбинированный стресс", combine: ["S2", "S3", "S4"]}
+
+batch:
+  runs_per_scenario: 100
+  max_parallel: 4
+  timeout_seconds: 600
+  seed_offset: 42
