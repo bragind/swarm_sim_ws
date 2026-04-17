@@ -1,0 +1,5 @@
+
+# Temporary build and log files
+scripts/log/
+scripts/build/
+scripts/install/
