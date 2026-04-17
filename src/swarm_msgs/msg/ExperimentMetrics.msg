@@ -1,0 +1,5 @@
+uint32 collisions
+float32 energy_consumption
+float32 avg_latency
+float32 packet_loss
+uint32 active_agents

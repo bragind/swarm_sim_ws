@@ -1,4 +1,5 @@
 /**
+#include <cmath>
  * @file trajectory_planner_node.cpp
  * @brief Adaptive trajectory planning node implementing Algorithm 3.4 (Eq. 3.10-3.15)
  * 
@@ -18,6 +19,10 @@
 #include <cmath>
 #include <queue>
 #include <Eigen/Dense>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 using namespace std::chrono_literals;
 
@@ -95,7 +100,7 @@ public:
 private:
     void goalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
         goal_ = Eigen::Vector3d(msg->pose.position.x, msg->pose.position.y, 
-                                tf2::getYaw(msg->pose.orientation));
+                                std::atan2(2.0 * (msg->pose.orientation.w * msg->pose.orientation.z + msg->pose.orientation.x * msg->pose.orientation.y), 1.0 - 2.0 * (msg->pose.orientation.y * msg->pose.orientation.y + msg->pose.orientation.z * msg->pose.orientation.z)));
         goal_reached_ = false;
         RCLCPP_INFO(this->get_logger(), "New goal received: (%.2f, %.2f)", goal_.x(), goal_.y());
     }
@@ -103,7 +108,7 @@ private:
     void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
         current_state_ << msg->pose.pose.position.x, 
                           msg->pose.pose.position.y,
-                          tf2::getYaw(msg->pose.pose.orientation);
+                          std::atan2(2.0 * (msg->pose.pose.orientation.w * msg->pose.pose.orientation.z + msg->pose.pose.orientation.x * msg->pose.pose.orientation.y), 1.0 - 2.0 * (msg->pose.pose.orientation.y * msg->pose.pose.orientation.y + msg->pose.pose.orientation.z * msg->pose.pose.orientation.z));
     }
     
     void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
@@ -277,7 +282,8 @@ private:
             pose_stamped.pose.position.x = pose.x();
             pose_stamped.pose.position.y = pose.y();
             pose_stamped.pose.position.z = 0.0;
-            pose_stamped.pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), pose.z()));
+            pose_stamped.pose.orientation.w = std::cos(pose.z() / 2.0);
+            pose_stamped.pose.orientation.z = std::sin(pose.z() / 2.0);
             path_msg.poses.push_back(pose_stamped);
         }
         
@@ -312,7 +318,7 @@ private:
     Eigen::Vector3d current_state_;
     Eigen::Vector3d goal_;
     std::vector<Eigen::Vector2d> obstacles_;
-    std::vector<double> high_level_action_;
+    std::vector<float> high_level_action_;
     
     double max_velocity_;
     double min_obstacle_distance_;

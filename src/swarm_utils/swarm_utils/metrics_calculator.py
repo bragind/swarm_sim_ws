@@ -5,7 +5,7 @@ Real-time metrics calculator. Computes energy, latency, success rate.
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
-from swarm_msgs.msg ExperimentMetrics
+from swarm_msgs.msg import ExperimentMetrics
 from std_msgs.msg import Float64
 import numpy as np
 

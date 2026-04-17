@@ -1,67 +1,73 @@
 #!/bin/bash
-# Batch experiment runner for scenarios S1-S6
-
-set -e
-
-WORKSPACE="/home/swarm/ros2_ws"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE="$(dirname "$SCRIPT_DIR")"
 LOG_DIR="/home/swarm/sim_storage/experiments"
-SCENARIOS=("S1" "S2" "S3" "S4" "S5" "S6")
-NUM_RUNS=100
+
+echo "🚀 === Starting batch experiments ==="
+echo "📂 Workspace: $WORKSPACE"
+echo "📝 Log directory: $LOG_DIR"
+mkdir -p "$LOG_DIR"
+cd "$WORKSPACE"
+
+# Инициализация ROS 2
+if [ -f /opt/ros/humble/setup.bash ]; then
+    source /opt/ros/humble/setup.bash
+else
+    echo "❌ ROS 2 not found"
+    exit 1
+fi
+source "$WORKSPACE/install/setup.bash"
+
+# Параметры
+SCENARIOS=("S1" "S2" "S3")
+NUM_RUNS=5
 SEED_START=42
+TIMEOUT_SEC=120
 
-echo "=== Starting batch experiments ==="
-echo "Workspace: $WORKSPACE"
-echo "Log directory: $LOG_DIR"
+# Headless-режим для Docker (обязательно!)
+export GZ_SIM_HEADLESS=1
+export GZ_GUI=0
+export QT_QPA_PLATFORM=offscreen
+export DISPLAY=:0
 
-# Source ROS environment
-source /opt/ros/humble/setup.bash
-cd $WORKSPACE
-
-# Build workspace
-echo "Building workspace..."
-colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
-
-# Run experiments
 for scenario in "${SCENARIOS[@]}"; do
     echo ""
-    echo "=== Scenario: $scenario ==="
+    echo "📦 === Scenario: $scenario ==="
     
-    for ((run=1; run<=$NUM_RUNS; run++)); do
+    for ((run=1; run<=NUM_RUNS; run++)); do
         seed=$((SEED_START + run))
-        timestamp=$(date +%Y%m%d_%H%M%S)
+        run_log="$LOG_DIR/${scenario}_run${run}_seed${seed}.log"
+        echo "▶️  Run $run/$NUM_RUNS (seed=$seed)..."
         
-        echo "Run $run/$NUM_RUNS (seed=$seed)..."
-        
-        # Launch simulation
+        # Запуск в фоне
         ros2 launch swarm_core simulation.launch.py \
-            scenario_id:=$scenario \
-            seed:=$seed \
+            scenario_id:="$scenario" \
+            seed:="$seed" \
             num_uavs:=5 \
             num_ugvs:=3 \
             use_marl:=true \
-            > "$LOG_DIR/${scenario}_run${run}_seed${seed}.log" 2>&1 &
+            gui:=false \
+            > "$run_log" 2>&1 &
         
         LAUNCH_PID=$!
         
-        # Wait for completion (timeout: 10 minutes)
-        timeout 600 bash -c "
-            while ! grep -q 'Experiment completed' $LOG_DIR/${scenario}_run${run}_seed${seed}.log; do
-                sleep 1
-            done
-        " || kill $LAUNCH_PID
+        # Ждём или убиваем по таймауту
+        sleep "$TIMEOUT_SEC"
+        if kill -0 $LAUNCH_PID 2>/dev/null; then
+            echo "⏱️  Timeout. Stopping..."
+            kill -TERM $LAUNCH_PID 2>/dev/null || true
+            sleep 3
+            kill -9 $LAUNCH_PID 2>/dev/null 2>/dev/null || true
+        else
+            wait $LAUNCH_PID 2>/dev/null
+            echo "✅ Run completed."
+        fi
         
-        # Small delay between runs
+        # Ожидание освобождения портов/DDS
         sleep 5
     done
 done
 
 echo ""
-echo "=== All experiments completed ==="
-echo "Results saved to: $LOG_DIR"
-
-# Generate summary statistics
-python3 /home/swarm/ros2_ws/src/swarm_utils/scripts/generate_summary.py \
-    --input_dir $LOG_DIR \
-    --output_file $LOG_DIR/summary_statistics.csv
-
-echo "Summary statistics saved to: $LOG_DIR/summary_statistics.csv"
+echo "🎉 === All experiments completed ==="
+echo "📊 Results saved to: $LOG_DIR"

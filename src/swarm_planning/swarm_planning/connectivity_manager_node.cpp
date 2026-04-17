@@ -40,9 +40,9 @@ private:
         if (current_agents_.empty()) return;
         
         // Build adjacency matrix
-        int n = current_agents_.size();
+        size_t n = current_agents_.size();
         Eigen::MatrixXd adj = Eigen::MatrixXd::Zero(n, n);
-        for(int i=0; i<n; ++i) {
+        for(size_t i=0; i<n; ++i) {
             for(int j=i+1; j<n; ++j) {
                 double dx = current_agents_[i].position.x - current_agents_[j].position.x;
                 double dy = current_agents_[i].position.y - current_agents_[j].position.y;
@@ -54,9 +54,9 @@ private:
         
         // Check isolated nodes
         Eigen::VectorXd degrees = adj.rowwise().sum();
-        for(int i=0; i<n; ++i) {
+        for(size_t i=0; i<n; ++i) {
             if (degrees[i] < min_neighbors_) {
-                RCLCPP_WARN(this->get_logger(), "Agent %d isolated (%.1f neighbors)", i, degrees[i]);
+                RCLCPP_WARN(this->get_logger(), "Agent %zu isolated (%.1f neighbors)", i, degrees[i]);
                 triggerRecovery(i);
             }
         }
