@@ -33,3 +33,4 @@ python3 src/swarm_utils/scripts/analyze_exp.py \
 # 8. Запуск в контейнере без Gazebo
 cd \swarm_sim_ws\docker
 docker exec -u root swarm_sim_container bash -c "cd /home/swarm/ws/scripts && chmod +x run_all_experiments.sh && ./run_all_experiments.sh"
+# 9. Запуск в контейнере c Gazebo
