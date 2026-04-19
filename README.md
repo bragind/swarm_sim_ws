@@ -30,3 +30,6 @@ ros2 launch swarm_core simulation.launch.py \
 # 7. Анализ результатов
 python3 src/swarm_utils/scripts/analyze_exp.py \
     --csv_path ~/sim_storage/experiments/exp_results.csv
+# 8. Запуск в контейнере без Gazebo
+cd \swarm_sim_ws\docker
+docker exec -u root swarm_sim_container bash -c "cd /home/swarm/ws/scripts && chmod +x run_all_experiments.sh && ./run_all_experiments.sh"
