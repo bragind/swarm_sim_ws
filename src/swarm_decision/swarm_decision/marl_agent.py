@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 MARL Agent Implementation. PyTorch-based policy network.
 Corresponds to Eq. 3.16-3.22 (Actor-Critic with PPO objective).

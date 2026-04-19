@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Real-time metrics calculator. Computes energy, latency, success rate.
 """

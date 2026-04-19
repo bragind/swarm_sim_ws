@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Communication Emulator. Simulates packet loss and latency (Sec 3.6).
 Intercepts topics, applies degradation, republishes.

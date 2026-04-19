@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Intelligent Decision Core Node.
 Implements Dec-POMDP model (Eq. 3.5-3.9) and MARL correction (Eq. 3.16-3.22).

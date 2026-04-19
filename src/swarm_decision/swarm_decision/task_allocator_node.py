@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Task Allocator Node. Implements auction-based allocation (Alg. 3.2, Eq. 3.2-3.4).
 Distributes waypoints to agents based on utility function U = w1*T + w2*E + w3*S.

@@ -24,27 +24,27 @@ def generate_launch_description():
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([FindPackageShare('ros_gz_sim'), 'launch', 'gz_sim.launch.py'])
         ]),
-        launch_arguments={'gz_args': '-r ' + world_path, 'on_exit_shutdown': 'true'}.items()
+        launch_arguments={'gz_args': '-r -s ' + world_path, 'on_exit_shutdown': 'true'}.items()
     )
 
     # Узлы восприятия
     perception = Node(
-        package='swarm_perception', executable='perception_node', name='perception',
+        package='swarm_perception', executable='perception_node.py', name='perception',
         output='screen'
     )
     fusion = Node(
-        package='swarm_perception', executable='sensor_fusion_node', name='sensor_fusion',
+        package='swarm_perception', executable='sensor_fusion_node.py', name='sensor_fusion',
         output='screen'
     )
 
     # Узлы принятия решений
     task_alloc = Node(
-        package='swarm_decision', executable='task_allocator_node', name='task_allocator',
+        package='swarm_decision', executable='task_allocator_node.py', name='task_allocator',
         parameters=[{'scenario_id': LaunchConfiguration('scenario_id')}],
         output='screen'
     )
     decision = Node(
-        package='swarm_decision', executable='decision_core_node', name='decision_core',
+        package='swarm_decision', executable='decision_core_node.py', name='decision_core',
         parameters=[{
             'use_marl': LaunchConfiguration('use_marl'),
             'model_path': '',  # Пусто = random policy для тестов

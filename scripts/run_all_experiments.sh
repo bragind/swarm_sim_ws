@@ -1,73 +1,71 @@
 #!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE="$(dirname "$SCRIPT_DIR")"
+# 🔧 Жёстко заданные пути (исключаем ошибки переменных)
+WORKSPACE="/home/swarm/ws"
 LOG_DIR="/home/swarm/sim_storage/experiments"
+TIMEOUT_SEC=600
+mkdir -p "$LOG_DIR"
+if ! touch "$LOG_DIR/.write_test" 2>/dev/null; then
+    echo "❌ ERROR: cannot write to log directory: $LOG_DIR"
+    echo "   Fix permissions (e.g. sudo chown -R swarm:swarm /home/swarm/sim_storage)"
+    exit 1
+fi
+rm -f "$LOG_DIR/.write_test"
 
 echo "🚀 === Starting batch experiments ==="
 echo "📂 Workspace: $WORKSPACE"
-echo "📝 Log directory: $LOG_DIR"
-mkdir -p "$LOG_DIR"
-cd "$WORKSPACE"
 
-# Инициализация ROS 2
-if [ -f /opt/ros/humble/setup.bash ]; then
-    source /opt/ros/humble/setup.bash
-else
-    echo "❌ ROS 2 not found"
-    exit 1
-fi
+# 1. Явное подключение окружения
+source /opt/ros/humble/setup.bash
 source "$WORKSPACE/install/setup.bash"
 
-# Параметры
-SCENARIOS=("S1" "S2" "S3")
-NUM_RUNS=5
-SEED_START=42
-TIMEOUT_SEC=120
+# 2. Проверка, что пакеты видны
+if ! ros2 pkg prefix swarm_core > /dev/null 2>&1; then
+    echo "❌ ERROR: swarm_core not found in environment!"
+    echo "   Run: source $WORKSPACE/install/setup.bash manually and try again."
+    exit 1
+fi
 
-# Headless-режим для Docker (обязательно!)
+# 3. Headless-режим для Docker
 export GZ_SIM_HEADLESS=1
 export GZ_GUI=0
 export QT_QPA_PLATFORM=offscreen
 export DISPLAY=:0
 
-for scenario in "${SCENARIOS[@]}"; do
+cd "$WORKSPACE"
+
+# 4. Цикл экспериментов
+for scenario in S1 S2 S3; do
     echo ""
     echo "📦 === Scenario: $scenario ==="
-    
-    for ((run=1; run<=NUM_RUNS; run++)); do
-        seed=$((SEED_START + run))
-        run_log="$LOG_DIR/${scenario}_run${run}_seed${seed}.log"
-        echo "▶️  Run $run/$NUM_RUNS (seed=$seed)..."
-        
-        # Запуск в фоне
-        ros2 launch swarm_core simulation.launch.py \
+    for run in 1 2 3 4 5; do
+        seed=$((42 + run))
+        log="$LOG_DIR/${scenario}_run${run}_seed${seed}.log"
+        echo "▶️  Run $run/5 (seed=$seed)..."
+
+        # timeout автоматически завершает процесс через TIMEOUT_SEC
+        start_ts=$(date +%s)
+        timeout "$TIMEOUT_SEC" ros2 launch swarm_core simulation.launch.py \
             scenario_id:="$scenario" \
             seed:="$seed" \
             num_uavs:=5 \
             num_ugvs:=3 \
             use_marl:=true \
             gui:=false \
-            > "$run_log" 2>&1 &
-        
-        LAUNCH_PID=$!
-        
-        # Ждём или убиваем по таймауту
-        sleep "$TIMEOUT_SEC"
-        if kill -0 $LAUNCH_PID 2>/dev/null; then
-            echo "⏱️  Timeout. Stopping..."
-            kill -TERM $LAUNCH_PID 2>/dev/null || true
-            sleep 3
-            kill -9 $LAUNCH_PID 2>/dev/null 2>/dev/null || true
+            > "$log" 2>&1
+
+        rc=$?
+        end_ts=$(date +%s)
+        duration=$((end_ts - start_ts))
+        if [ $rc -eq 124 ]; then
+            echo "⏱️  Timeout reached after ${duration}s."
+        elif [ $rc -eq 0 ]; then
+            echo "✅ Run completed in ${duration}s."
         else
-            wait $LAUNCH_PID 2>/dev/null
-            echo "✅ Run completed."
+            echo "❌ Run failed in ${duration}s (exit code: $rc). See log: $log"
         fi
-        
-        # Ожидание освобождения портов/DDS
         sleep 5
     done
 done
 
 echo ""
 echo "🎉 === All experiments completed ==="
-echo "📊 Results saved to: $LOG_DIR"
