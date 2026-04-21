@@ -1,4 +1,27 @@
+@"
+# ROS 2 build artifacts
+build/
+install/
+log/
 
-scripts/log/
-scripts/build/
-scripts/install/
+# Python cache
+__pycache__/
+*.pyc
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Docker volumes and storage
+sim_storage/
+results/
+thesis_figures/
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary container changes dump
+container_changes/
+"@ | Out-File -Encoding UTF8 .gitignore
