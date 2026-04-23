@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Europe/Moscow
 ENV PYTHONUNBUFFERED=1
 
-# ===== Замена apt-зеркал на российские =====
+# ===== Замена apt-зеркал на российские (для apt, не для pip) =====
 RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirror.yandex.ru/ubuntu|g' /etc/apt/sources.list && \
     sed -i 's|http://security.ubuntu.com/ubuntu|http://mirror.yandex.ru/ubuntu|g' /etc/apt/sources.list
 
@@ -41,15 +41,11 @@ RUN apt-get update && \
 # Проверка Gazebo Classic (уже есть в базовом образе)
 RUN gazebo --version || echo "⚠️ Gazebo Classic not found"
 
-# ===== Настройка pip на российские зеркала =====
-RUN pip3 config set global.index-url https://mirror.yandex.ru/pypi/simple && \
-    pip3 config set global.extra-index-url https://download.pytorch.org/whl/cpu && \
-    pip3 config set global.trusted-host mirror.yandex.ru
-
 # ===== Python и научный стек =====
-# Используем --ignore-installed для перезаписи системных пакетов
-RUN pip3 install --no-cache-dir \
+# Официальный PyPI с retry-логикой; extra-index только для PyTorch
+RUN pip3 install --no-cache-dir --timeout=120 --retries=5 \
         --ignore-installed \
+        --extra-index-url https://download.pytorch.org/whl/cpu \
         numpy \
         pandas \
         matplotlib \
