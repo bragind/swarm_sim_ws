@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+# fix_decision_core.py
+content = '''#!/usr/bin/env python3
 """
 Intelligent Decision Core Node.
 Implements Dec-POMDP model (Eq. 3.5-3.9) and MARL correction (Eq. 3.16-3.22).
@@ -218,9 +219,9 @@ class DecisionCoreNode(Node):
                 agent.position.x = float(i * 10)
                 agent.position.y = float(i * 5)
                 agent.position.z = 0.0
-                agent.velocity.linear.x = 1.0
-                agent.velocity.linear.y = 0.0
-                agent.velocity.linear.z = 0.0
+                agent.velocity.x = 1.0
+                agent.velocity.y = 0.0
+                agent.velocity.z = 0.0
                 agent.status = "active"
                 msg.agents.append(agent)
         
@@ -330,3 +331,8 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+'''
+
+with open("H:/work/swarm_sim_ws/src/swarm_decision/swarm_decision/decision_core_node.py", "w") as f:
+    f.write(content)
+print("✅ File replaced successfully.")

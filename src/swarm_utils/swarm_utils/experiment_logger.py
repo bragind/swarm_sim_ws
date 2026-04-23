@@ -1,155 +1,171 @@
 #!/usr/bin/env python3
-#!/usr/bin/env python3
-"""
-Experiment Logger Node.
-Records metrics to CSV for statistical analysis (Section 4.5).
-"""
-
 import rclpy
 from rclpy.node import Node
+from swarm_msgs.msg import SwarmState
 from std_msgs.msg import Float64, Bool
-from nav_msgs.msg import Odometry
-from swarm_msgs.msg import SwarmState, ExperimentMetrics
 import csv
-import os
-from datetime import datetime
 import json
-
+import os
+import time
+from datetime import datetime
 
 class ExperimentLogger(Node):
     def __init__(self):
         super().__init__('experiment_logger')
         
-        # Parameters
-        self.declare_parameter('log_path', '/tmp/swarm_experiments')
+        # Параметры
+        self.declare_parameter('log_path', os.path.expanduser('~/sim_storage/experiments'))
         self.declare_parameter('scenario_id', 'S1')
         self.declare_parameter('seed', 42)
         self.declare_parameter('csv_output', True)
+        self.declare_parameter('timeout', 120.0)  # seconds
         
-        self.log_path = self.get_parameter('log_path').get_parameter_value().string_value
-        self.scenario_id = self.get_parameter('scenario_id').get_parameter_value().string_value
-        self.seed = self.get_parameter('seed').get_parameter_value().integer_value
+        self.log_path = self.get_parameter('log_path').value
+        self.scenario_id = self.get_parameter('scenario_id').value
+        self.seed = self.get_parameter('seed').value
+        self.csv_output = self.get_parameter('csv_output').value
+        self.timeout_duration = self.get_parameter('timeout').value
         
-        # Create log directory
         os.makedirs(self.log_path, exist_ok=True)
         
-        # Generate unique run ID
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        self.run_id = f"{self.scenario_id}_{timestamp}_{self.seed}"
-        self.csv_file = os.path.join(self.log_path, f"{self.run_id}.csv")
+        # Переменные состояния эксперимента
+        self.start_time = None
+        self.end_time = None
+        self.mission_time = 0.0
+        self.success_flag = False
+        self.collisions_count = 0
+        self.total_energy_wh = 0.0
+        self.avg_latency_ms = 0.0
+        self.packet_loss_ratio = 0.0
+        self.connectivity_coeff = 1.0
+        self.num_agents = 0
+        self.last_state_time = None
         
-        # Initialize metrics
-        self.metrics = {
-            'run_id': self.run_id,
+        # Подписки
+        self.state_sub = self.create_subscription(SwarmState, '/swarm/state', self.state_callback, 10)
+        # НОВЫЕ ПОДПИСКИ
+        self.collision_sub = self.create_subscription(Float64, '/swarm/collisions', self.collision_callback, 10)
+        self.energy_sub = self.create_subscription(Float64, '/swarm/total_energy', self.energy_callback, 10)
+        self.success_sub = self.create_subscription(Bool, '/swarm/success', self.success_callback, 10)
+        # Для латентности и потерь пакетов уже есть communication_emulator, который публикует в отдельные топики?
+        # Предположим, что они публикуются в /swarm/latency и /swarm/packet_loss, но если нет, оставим нули.
+        # Добавим подписки, если эмулятор их публикует.
+        self.latency_sub = self.create_subscription(Float64, '/swarm/avg_latency', self.latency_callback, 10)
+        self.loss_sub = self.create_subscription(Float64, '/swarm/packet_loss', self.loss_callback, 10)
+        
+        # Таймер для проверки таймаута
+        self.timer = self.create_timer(1.0, self.check_timeout)
+        
+        self.get_logger().info(f'Experiment logger initialized. Logging to: {self._get_log_filename()}')
+    
+    def _get_log_filename(self):
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        return os.path.join(self.log_path, f'{self.scenario_id}_{timestamp}_{self.seed}')
+    
+    def state_callback(self, msg: SwarmState):
+        if self.start_time is None:
+            self.start_time = time.time()
+        self.last_state_time = time.time()
+        self.num_agents = len(msg.agents)
+        self.connectivity_coeff = msg.connectivity_coefficient
+        
+        # Запись в CSV при каждом обновлении (если включено)
+        if self.csv_output:
+            self._write_csv_row()
+    
+    def collision_callback(self, msg: Float64):
+        self.collisions_count = int(msg.data)
+    
+    def energy_callback(self, msg: Float64):
+        self.total_energy_wh = msg.data
+    
+    def success_callback(self, msg: Bool):
+        self.success_flag = msg.data
+    
+    def latency_callback(self, msg: Float64):
+        self.avg_latency_ms = msg.data
+    
+    def loss_callback(self, msg: Float64):
+        self.packet_loss_ratio = msg.data
+    
+    def check_timeout(self):
+        if self.start_time is not None and self.last_state_time is not None:
+            elapsed = time.time() - self.last_state_time
+            if elapsed > self.timeout_duration:
+                self.get_logger().warn('Timeout reached, finalizing experiment...')
+                self.finalize()
+                rclpy.shutdown()
+    
+    def finalize(self):
+        self.end_time = time.time()
+        if self.start_time:
+            self.mission_time = self.end_time - self.start_time
+        
+        # Запись финального JSON
+        self._write_json()
+        self.get_logger().info(f'Experiment completed. Results saved to {self._get_log_filename()}.csv/json')
+        self.get_logger().info(f'Mission time: {self.mission_time:.2f}s, Success: {self.success_flag}, Collisions: {self.collisions_count}')
+    
+    def _write_csv_row(self):
+        csv_file = self._get_log_filename() + '.csv'
+        file_exists = os.path.isfile(csv_file)
+        with open(csv_file, 'a', newline='') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow([
+                    'run_id', 'scenario_id', 'seed', 'start_time', 'end_time',
+                    'mission_time_s', 'success_flag', 'collisions_count',
+                    'total_energy_wh', 'avg_latency_ms', 'packet_loss_ratio',
+                    'connectivity_coeff', 'num_agents'
+                ])
+            run_id = f'{self.scenario_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{self.seed}'
+            writer.writerow([
+                run_id,
+                self.scenario_id,
+                self.seed,
+                self.start_time if self.start_time else '',
+                self.end_time if self.end_time else '',
+                self.mission_time,
+                int(self.success_flag),
+                self.collisions_count,
+                self.total_energy_wh,
+                self.avg_latency_ms,
+                self.packet_loss_ratio,
+                self.connectivity_coeff,
+                self.num_agents
+            ])
+    
+    def _write_json(self):
+        json_file = self._get_log_filename() + '.json'
+        data = {
+            'run_id': f'{self.scenario_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{self.seed}',
             'scenario_id': self.scenario_id,
             'seed': self.seed,
-            'start_time': None,
-            'end_time': None,
-            'mission_time_s': 0.0,
-            'success_flag': 0,
-            'collisions_count': 0,
-            'total_energy_wh': 0.0,
-            'avg_latency_ms': 0.0,
-            'packet_loss_ratio': 0.0,
-            'connectivity_coeff': 1.0,
-            'num_agents': 0
+            'start_time': self.start_time,
+            'end_time': self.end_time,
+            'mission_time_s': self.mission_time,
+            'success_flag': int(self.success_flag),
+            'collisions_count': self.collisions_count,
+            'total_energy_wh': self.total_energy_wh,
+            'avg_latency_ms': self.avg_latency_ms,
+            'packet_loss_ratio': self.packet_loss_ratio,
+            'connectivity_coeff': self.connectivity_coeff,
+            'num_agents': self.num_agents
         }
-        
-        # CSV header
-        self.csv_header = list(self.metrics.keys())
-        
-        # Subscribers
-        self.create_subscription(SwarmState, '/swarm/state', self.swarm_state_callback, 10)
-        self.create_subscription(ExperimentMetrics, '/swarm/metrics', self.metrics_callback, 10)
-        self.create_subscription(Bool, '/experiment/complete', self.experiment_complete_callback, 10)
-        
-        # Timer for periodic logging
-        self.create_timer(1.0, self.log_periodic)
-        
-        self.get_logger().info(f'Experiment logger initialized. Logging to: {self.csv_file}')
-    
-    def swarm_state_callback(self, msg: SwarmState):
-        if self.metrics['start_time'] is None:
-            self.metrics['start_time'] = self.get_clock().now().nanoseconds / 1e9
-            self.metrics['num_agents'] = len(msg.agents)
-        
-        # Update connectivity
-        self.metrics['connectivity_coeff'] = self._compute_connectivity(msg)
-    
-    def metrics_callback(self, msg: ExperimentMetrics):
-        self.metrics['collisions_count'] = msg.collisions
-        self.metrics['total_energy_wh'] += msg.energy_consumption
-        self.metrics['avg_latency_ms'] = msg.avg_latency
-        self.metrics['packet_loss_ratio'] = msg.packet_loss
-    
-    def experiment_complete_callback(self, msg: Bool):
-        if msg.data:
-            self.finalize_experiment(success=True)
-    
-    def _compute_connectivity(self, swarm_state: SwarmState) -> float:
-        """Compute graph connectivity coefficient"""
-        n = len(swarm_state.agents)
-        if n <= 1:
-            return 1.0
-        
-        connected = 0
-        total = n * (n - 1) / 2
-        
-        for i in range(n):
-            for j in range(i + 1, n):
-                dist = ((swarm_state.agents[i].position.x - swarm_state.agents[j].position.x) ** 2 +
-                       (swarm_state.agents[i].position.y - swarm_state.agents[j].position.y) ** 2) ** 0.5
-                if dist < 100.0:  # Communication range
-                    connected += 1
-        
-        return connected / total if total > 0 else 0.0
-    
-    def log_periodic(self):
-        """Log current metrics to CSV"""
-        if not self.get_parameter('csv_output').get_parameter_value().bool_value:
-            return
-        
-        file_exists = os.path.isfile(self.csv_file)
-        
-        with open(self.csv_file, 'a', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=self.csv_header)
-            if not file_exists:
-                writer.writeheader()
-            
-            # Write current snapshot
-            row = {k: v for k, v in self.metrics.items()}
-            writer.writerow(row)
-    
-    def finalize_experiment(self, success: bool = True):
-        """Finalize experiment and compute final metrics"""
-        end_time = self.get_clock().now().nanoseconds / 1e9
-        
-        if self.metrics['start_time'] is not None:
-            self.metrics['mission_time_s'] = end_time - self.metrics['start_time']
-        
-        self.metrics['end_time'] = end_time
-        self.metrics['success_flag'] = 1 if success else 0
-        
-        # Write final metrics
-        self.log_periodic()
-        
-        # Also save as JSON for easy parsing
-        json_file = self.csv_file.replace('.csv', '.json')
         with open(json_file, 'w') as f:
-            json.dump(self.metrics, f, indent=2)
-        
-        self.get_logger().info(f'Experiment completed. Results saved to {self.csv_file}')
-        self.get_logger().info(f'Mission time: {self.metrics["mission_time_s"]:.2f}s, '
-                              f'Success: {success}, Collisions: {self.metrics["collisions_count"]}')
-
+            json.dump(data, f, indent=2)
 
 def main(args=None):
     rclpy.init(args=args)
     node = ExperimentLogger()
-    rclpy.spin(node)
-    node.destroy_node()
-    rclpy.shutdown()
-
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.finalize()
+        node.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
