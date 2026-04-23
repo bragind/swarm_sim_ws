@@ -1,5 +1,5 @@
 # Multi-stage build for ROS 2 Humble + Gazebo Harmonic
-# Оптимизирован для сборки в РФ/СНГ
+
 FROM osrf/ros:humble-desktop-full AS base
 
 # ===== Глобальные настройки =====
@@ -12,7 +12,7 @@ RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirror.yandex.ru/ubuntu|g'
     sed -i 's|http://security.ubuntu.com/ubuntu|http://mirror.yandex.ru/ubuntu|g' /etc/apt/sources.list
 
 # ===== Базовые системные пакеты =====
-# Добавлен python3-pip и libgl1 (для графики)
+# python3-pip и libgl1 (для графики)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gnupg2 \
@@ -24,8 +24,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-glx \
     && rm -rf /var/lib/apt/lists/*
 
+# ===== Удаляем конфликтующие системные Python-пакеты =====
+# sympy и другие научные библиотеки лучше ставить через pip,
+# чтобы избежать конфликтов версий при установке torch.
+RUN apt-get update && apt-get remove -y \
+    python3-sympy \
+    python3-mpmath \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
 # ===== Gazebo Harmonic (ros-gz) =====
-# Установка ros-humble-ros-gz-* для интеграции ROS 2 с Gazebo Harmonic
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ros-humble-ros-gz-sim \
@@ -37,17 +45,18 @@ RUN apt-get update && \
 RUN gazebo --version || echo "⚠️ Gazebo Classic not found"
 
 # ===== Python и научный стек =====
-# Установка pip, setuptools, wheel и научных библиотек
-RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip3 install --no-cache-dir \
+# НЕ обновляем системные pip/setuptools — это ломает colcon
+# Устанавливаем пакеты, игнорируя уже установленные системные версии
+RUN pip3 install --no-cache-dir \
+        --ignore-installed \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         numpy \
         pandas \
         matplotlib \
         scipy \
         seaborn \
-        torch && \
-    rm -rf /root/.cache/pip
+        torch \
+    && rm -rf /root/.cache/pip
 
 # ===== Пользователь и окружение =====
 RUN useradd -m -u 1000 -G sudo swarm && \
@@ -56,7 +65,7 @@ RUN useradd -m -u 1000 -G sudo swarm && \
 USER swarm
 WORKDIR /home/swarm
 
-# Инициализация rosdep (с обработкой ошибок)
+# Инициализация rosdep
 RUN rosdep update || echo "⚠️ rosdep update failed, продолжим..."
 
 # Настройка среды
