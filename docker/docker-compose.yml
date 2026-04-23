@@ -1,30 +1,59 @@
-
+version: '3.8'
 
 services:
   swarm_sim:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    profiles:
-      - batch
-      - gui
+      target: ${BUILD_TARGET:-development}  # development | runtime
+      args:
+        # Аргументы для обхода проблем с сетью
+        BASE_IMAGE: ${BASE_IMAGE:-osrf/ros:humble-desktop-full}
+        REGISTRY_MIRROR: ${REGISTRY_MIRROR:-docker.io}
+        PYTORCH_INDEX: ${PYTORCH_INDEX:-https://download.pytorch.org/whl/cpu}
     container_name: swarm_sim_container
-    user: swarm
-    stdin_open: true
-    tty: true
     volumes:
-      - ../src:/home/swarm/ws/src
-      - ../scripts:/home/swarm/ws/scripts
-      - swarm_storage:/home/swarm/sim_storage
+      # Монтируем исходный код для быстрой итерации (не требует пересборки!)
+      - ../src:/home/swarm/src:cached
+      - ../scripts:/home/swarm/scripts:cached
+      - ../config:/home/swarm/config:ro
+      # Persistent storage для результатов экспериментов
+      - swarm_data:/home/swarm/sim_storage
+      # Опционально: монтируем кеш pip/colcon для ускорения сборок
+      - ~/.cache/pip:/home/swarm/.cache/pip
+      - ~/.colcon:/home/swarm/.colcon
     environment:
-      - ROS_DOMAIN_ID=0
-      - DISPLAY=${DISPLAY:-:0}
-      - QT_X11_NO_MITSHM=1
-      - PYTHONUNBUFFERED=1
-      - AMENT_PREFIX_PATH=/home/swarm/ws/install:/opt/ros/humble   # <-- добавлено
-    network_mode: host
-    command: ["/bin/bash", "-c", "while true; do sleep 3600; done"]
+      - TZ=Europe/Moscow
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - GZ_SIM_HEADLESS=${GZ_SIM_HEADLESS:-1}
+      - QT_QPA_PLATFORM=offscreen
+      - DISPLAY=:0
+      # Переменные для устойчивой работы pip внутри контейнера
+      - PIP_TIMEOUT=120
+      - PIP_RETRIES=5
+    ports:
+      # VNC для визуальной отладки (опционально)
+      - "5900:5900"
+      # noVNC web-интерфейс
+      - "6080:6080"
+      # ROS2 DDS порты (для отладки межконтейнерной связи)
+      - "7400-7410:7400-7410/udp"
+    # Ресурсы: ограничиваем память, чтобы не "убить" сервер
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4'
+    # Restart policy для устойчивости
+    restart: unless-stopped
+    # Healthcheck для мониторинга состояния
+    healthcheck:
+      test: ["CMD", "ros2", "node", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
-  swarm_storage:
+  swarm_data:
     driver: local
