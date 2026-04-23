@@ -1,71 +1,55 @@
 #!/bin/bash
-# 🔧 Жёстко заданные пути (исключаем ошибки переменных)
+set -e
 WORKSPACE="/home/swarm/ws"
 LOG_DIR="/home/swarm/sim_storage/experiments"
-TIMEOUT_SEC=600
 mkdir -p "$LOG_DIR"
-if ! touch "$LOG_DIR/.write_test" 2>/dev/null; then
-    echo "❌ ERROR: cannot write to log directory: $LOG_DIR"
-    echo "   Fix permissions (e.g. sudo chown -R swarm:swarm /home/swarm/sim_storage)"
-    exit 1
-fi
-rm -f "$LOG_DIR/.write_test"
+echo "🚀 === Starting QUICK TEST ==="
 
-echo "🚀 === Starting batch experiments ==="
-echo "📂 Workspace: $WORKSPACE"
-
-# 1. Явное подключение окружения
+# 🔧 ЯВНОЕ подключение окружения
 source /opt/ros/humble/setup.bash
 source "$WORKSPACE/install/setup.bash"
 
-# 2. Проверка, что пакеты видны
-if ! ros2 pkg prefix swarm_core > /dev/null 2>&1; then
-    echo "❌ ERROR: swarm_core not found in environment!"
-    echo "   Run: source $WORKSPACE/install/setup.bash manually and try again."
-    exit 1
-fi
-
-# 3. Headless-режим для Docker
+# 🔇 Headless для Docker
 export GZ_SIM_HEADLESS=1
-export GZ_GUI=0
 export QT_QPA_PLATFORM=offscreen
 export DISPLAY=:0
 
 cd "$WORKSPACE"
 
-# 4. Цикл экспериментов
-for scenario in S1 S2 S3; do
-    echo ""
-    echo "📦 === Scenario: $scenario ==="
-    for run in 1 2 3 4 5; do
-        seed=$((42 + run))
-        log="$LOG_DIR/${scenario}_run${run}_seed${seed}.log"
-        echo "▶️  Run $run/5 (seed=$seed)..."
+# Быстрый тест: 1 прогон на сценарий
+SCENARIOS=("S1" "S2" "S3" "S4" "S5" "S6")
+TIMEOUT_SEC=30
 
-        # timeout автоматически завершает процесс через TIMEOUT_SEC
-        start_ts=$(date +%s)
-        timeout "$TIMEOUT_SEC" ros2 launch swarm_core simulation.launch.py \
-            scenario_id:="$scenario" \
-            seed:="$seed" \
-            num_uavs:=5 \
-            num_ugvs:=3 \
-            use_marl:=true \
-            gui:=false \
-            > "$log" 2>&1
-
-        rc=$?
-        end_ts=$(date +%s)
-        duration=$((end_ts - start_ts))
-        if [ $rc -eq 124 ]; then
-            echo "⏱️  Timeout reached after ${duration}s."
-        elif [ $rc -eq 0 ]; then
-            echo "✅ Run completed in ${duration}s."
-        else
-            echo "❌ Run failed in ${duration}s (exit code: $rc). See log: $log"
-        fi
-        sleep 5
-    done
-done
-
+for scenario in "${SCENARIOS[@]}"; do
 echo ""
-echo "🎉 === All experiments completed ==="
+echo "📦 === Scenario: $scenario ==="
+seed=43
+run_log="$LOG_DIR/${scenario}_run1_seed${seed}.log"
+echo "▶️  Run 1/1 (seed=$seed)..."
+
+# Запуск с явным окружением
+bash -c "
+source /opt/ros/humble/setup.bash
+source $WORKSPACE/install/setup.bash
+ros2 launch swarm_core simulation.launch.py \
+scenario_id:=$scenario \
+seed:=$seed \
+num_uavs:=3 \
+num_ugvs:=2 \
+use_marl:=false \
+gui:=false
+" > "$run_log" 2>&1 &
+PID=$!
+
+sleep "$TIMEOUT_SEC"
+if kill -0 $PID 2>/dev/null; then
+echo "⏱️  Timeout"
+kill -TERM $PID 2>/dev/null || true
+else
+wait $PID 2>/dev/null
+echo "✅ Run completed."
+fi
+sleep 2
+done
+echo ""
+echo "🎉 === QUICK TEST COMPLETED ==="
