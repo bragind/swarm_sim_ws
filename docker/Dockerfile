@@ -1,5 +1,5 @@
 # Multi-stage build for ROS 2 Humble + Gazebo Harmonic
-
+# Оптимизирован для сборки в РФ/СНГ
 FROM osrf/ros:humble-desktop-full AS base
 
 # ===== Глобальные настройки =====
@@ -7,12 +7,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Europe/Moscow
 ENV PYTHONUNBUFFERED=1
 
-# ===== Замена зеркал на российские =====
+# ===== Замена apt-зеркал на российские =====
 RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirror.yandex.ru/ubuntu|g' /etc/apt/sources.list && \
     sed -i 's|http://security.ubuntu.com/ubuntu|http://mirror.yandex.ru/ubuntu|g' /etc/apt/sources.list
 
 # ===== Базовые системные пакеты =====
-# python3-pip и libgl1 (для графики)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gnupg2 \
@@ -24,9 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-glx \
     && rm -rf /var/lib/apt/lists/*
 
-# ===== Удаляем конфликтующие системные Python-пакеты =====
-# sympy и другие научные библиотеки лучше ставить через pip,
-# чтобы избежать конфликтов версий при установке torch.
+# ===== Удаление конфликтующих системных Python-пакетов =====
 RUN apt-get update && apt-get remove -y \
     python3-sympy \
     python3-mpmath \
@@ -44,12 +41,15 @@ RUN apt-get update && \
 # Проверка Gazebo Classic (уже есть в базовом образе)
 RUN gazebo --version || echo "⚠️ Gazebo Classic not found"
 
+# ===== Настройка pip на российские зеркала =====
+RUN pip3 config set global.index-url https://mirror.yandex.ru/pypi/simple && \
+    pip3 config set global.extra-index-url https://download.pytorch.org/whl/cpu && \
+    pip3 config set global.trusted-host mirror.yandex.ru
+
 # ===== Python и научный стек =====
-# НЕ обновляем системные pip/setuptools — это ломает colcon
-# Устанавливаем пакеты, игнорируя уже установленные системные версии
+# Используем --ignore-installed для перезаписи системных пакетов
 RUN pip3 install --no-cache-dir \
         --ignore-installed \
-        --extra-index-url https://download.pytorch.org/whl/cpu \
         numpy \
         pandas \
         matplotlib \
