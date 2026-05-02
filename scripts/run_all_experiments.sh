@@ -1,6 +1,12 @@
 #!/bin/bash
+<<<<<<< Updated upstream
 # 🔧 Жёстко заданные пути
 WORKSPACE="/home/swarm/ws"
+=======
+
+# 🔧 Пути (адаптировано под ваш контейнер)
+WORKSPACE="/home/swarm"
+>>>>>>> Stashed changes
 LOG_DIR="/home/swarm/sim_storage/experiments"
 TIMEOUT_SEC=600
 
@@ -53,28 +59,16 @@ for scenario in "${SCENARIOS[@]}"; do
             
             echo "▶️ Run $run/$NUM_RUNS (seed=$seed)..."
             
-            # Формирование параметров в зависимости от архитектуры
+            # Формирование параметров
             case $arch in
                 "central_a_star")
-                    USE_MARL="false"
-                    USE_DEC_POMDP="false"
-                    PLANNER_MODE="central"
-                    ;;
+                    USE_MARL="false"; USE_DEC_POMDP="false"; PLANNER_MODE="central" ;;
                 "reactive")
-                    USE_MARL="false"
-                    USE_DEC_POMDP="false"
-                    PLANNER_MODE="reactive"
-                    ;;
+                    USE_MARL="false"; USE_DEC_POMDP="false"; PLANNER_MODE="reactive" ;;
                 "rule_dec")
-                    USE_MARL="false"
-                    USE_DEC_POMDP="false"
-                    PLANNER_MODE="rule_based"
-                    ;;
+                    USE_MARL="false"; USE_DEC_POMDP="false"; PLANNER_MODE="rule_based" ;;
                 "marl_decpomdp")
-                    USE_MARL="true"
-                    USE_DEC_POMDP="true"
-                    PLANNER_MODE="hybrid"
-                    ;;
+                    USE_MARL="true"; USE_DEC_POMDP="true"; PLANNER_MODE="hybrid" ;;
             esac
             
             start_ts=$(date +%s)
@@ -89,6 +83,7 @@ for scenario in "${SCENARIOS[@]}"; do
                 planner_mode:="$PLANNER_MODE" \
                 architecture_id:="$arch" \
                 gui:=false \
+                headless:=true \
                 sim_mode:="logical" \
                 >"$log" 2>&1
             
@@ -110,4 +105,8 @@ done
 
 echo ""
 echo "🎉 === All experiments completed ==="
+<<<<<<< Updated upstream
 echo "📊 Results saved to: $LOG_DIR"
+=======
+echo "📊 Results saved to: $LOG_DIR"
+>>>>>>> Stashed changes
