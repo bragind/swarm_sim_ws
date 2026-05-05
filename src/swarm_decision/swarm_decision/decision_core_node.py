@@ -2,7 +2,8 @@
 """
 Intelligent Decision Core Node.
 Implements Dec-POMDP model (Eq. 3.5-3.9) and MARL correction (Eq. 3.16-3.22).
-Supports multiple control architectures: central_a_star, reactive, rule_dec, marl_decpomdp.
+Supports multiple control architectures: central_a_star, reactive, rule_dec,
+decpomdp_heuristic, marl_decpomdp.
 """
 
 import rclpy
@@ -11,7 +12,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from std_msgs.msg import Float64MultiArray, Bool, String
 from geometry_msgs.msg import PoseStamped, Twist, Point
 from nav_msgs.msg import Odometry, Path
-from swarm_msgs.msg import SwarmState, AgentState, TaskAssignment, DecisionOutput, Obstacle
+from swarm_msgs.msg import SwarmState, AgentState, TaskAssignment, DecisionOutput
 import numpy as np
 from typing import Dict, List, Tuple, Optional
 import torch
@@ -309,6 +310,17 @@ class MARLDecPOMDPStrategy(ArchitectureStrategy):
         ]
 
 
+class DecPOMDPHeuristicStrategy(MARLDecPOMDPStrategy):
+    """Dec-POMDP utility selection without MARL policy correction."""
+    def __init__(self, node: Node, dec_pomdp: DecPOMDPSolver):
+        super().__init__(node, dec_pomdp, marl_agent=None)
+
+    def select_action(self, state: np.ndarray, swarm_state: SwarmState,
+                     scenario_id: str, **kwargs) -> Tuple[np.ndarray, float, str]:
+        action, utility, _ = super().select_action(state, swarm_state, scenario_id, **kwargs)
+        return action, utility, "decpomdp_heuristic"
+
+
 # ============================================================================
 # Main Decision Core Node
 # ============================================================================
@@ -319,26 +331,42 @@ class DecisionCoreNode(Node):
         super().__init__('decision_core')
         
         # === NEW: Architecture selection parameters ===
+        self.declare_parameter('architecture', '')
         self.declare_parameter('architecture_id', 'marl_decpomdp')
         self.declare_parameter('planner_mode', 'hybrid')
         self.declare_parameter('use_dec_pomdp', True)
         self.declare_parameter('use_marl', True)
         self.declare_parameter('scenario_id', 'S1')
+        self.declare_parameter('run_id', '')
         self.declare_parameter('seed', 42)
+        self.declare_parameter('num_agents', 8)
+        self.declare_parameter('num_uavs', 5)
+        self.declare_parameter('num_ugvs', 3)
         
         # Existing parameters
         self.declare_parameter('model_path', '')
+        self.declare_parameter('marl_model_path', '')
+        self.declare_parameter('marl_model_exists', False)
+        self.declare_parameter('marl_model_allowed_for_proof', False)
+        self.declare_parameter('marl_model_type', 'unknown')
         self.declare_parameter('dec_pomdp_horizon', 10)
         self.declare_parameter('exploration_rate', 0.1)
+        self.declare_parameter('compute_delay_ms', 0.0)
         
         # Read parameters
-        self.architecture_id = self.get_parameter('architecture_id').value
+        architecture = self.get_parameter('architecture').value
+        self.architecture_id = architecture or self.get_parameter('architecture_id').value
+        self.architecture_effective = self.architecture_id
         self.planner_mode = self.get_parameter('planner_mode').value
         self.use_dec_pomdp = self.get_parameter('use_dec_pomdp').value
         self.use_marl = self.get_parameter('use_marl').value
         self.scenario_id = self.get_parameter('scenario_id').value
+        self.run_id = self.get_parameter('run_id').value
         self.seed = self.get_parameter('seed').value
-        self.model_path = self.get_parameter('model_path').value
+        self.model_path = self.get_parameter('marl_model_path').value or self.get_parameter('model_path').value
+        self.marl_model_exists = bool(self.get_parameter('marl_model_exists').value)
+        self.marl_model_allowed_for_proof = bool(self.get_parameter('marl_model_allowed_for_proof').value)
+        self.marl_model_type = str(self.get_parameter('marl_model_type').value)
         self.horizon = self.get_parameter('dec_pomdp_horizon').value
         self.exploration_rate = self.get_parameter('exploration_rate').value
         
@@ -355,16 +383,35 @@ class DecisionCoreNode(Node):
         
         # Initialize MARL agent
         self.marl_agent = None
+        self.marl_model_loaded = False
+        self.validity_class = ''
+        if self.architecture_id == 'marl_decpomdp' and not self.use_marl:
+            self.architecture_effective = 'decpomdp_fallback'
+            self.validity_class = 'diagnostic_marl_model_missing'
         if self.use_marl and self.architecture_id == 'marl_decpomdp':
             self.marl_agent = MARLAgent(state_dim=12, action_dim=6)
             if self.model_path and os.path.exists(self.model_path):
                 try:
-                    self.marl_agent.load_state_dict(torch.load(self.model_path, map_location='cpu', weights_only=False))
+                    checkpoint = torch.load(self.model_path, map_location='cpu', weights_only=False)
+                    if isinstance(checkpoint, dict) and 'metadata' in checkpoint:
+                        metadata = checkpoint.get('metadata') or {}
+                        self.marl_model_type = str(metadata.get('model_type', self.marl_model_type))
+                        self.marl_model_allowed_for_proof = bool(metadata.get('allowed_for_wkr_proof', self.marl_model_allowed_for_proof))
+                        state_dict = checkpoint.get('state_dict') or checkpoint.get('model_state_dict')
+                    else:
+                        state_dict = checkpoint
+                    self.marl_agent.load_state_dict(state_dict)
+                    self.marl_model_loaded = True
                     self.get_logger().info(f'✓ Loaded MARL model from {self.model_path}')
                 except Exception as e:
                     self.get_logger().error(f'Failed to load MARL model: {e}')
             else:
-                self.get_logger().warn('⚠ MARL model not found, using untrained policy')
+                self.get_logger().error('MARL model not found; run is diagnostic, not valid MARL evidence')
+            if not self.marl_model_loaded:
+                self.architecture_effective = 'decpomdp_fallback'
+                self.validity_class = 'diagnostic_marl_model_missing'
+            elif self.marl_model_type == 'test_integration_checkpoint':
+                self.validity_class = 'diagnostic_test_marl_model'
         
         # === Initialize architecture-specific strategy ===
         self.strategy = self._create_strategy()
@@ -406,7 +453,7 @@ class DecisionCoreNode(Node):
         # Timers
         self.timer = self.create_timer(0.1, self.decision_loop)  # 10 Hz decision
         self.create_timer(1.0, self.publish_swarm_state)  # 1 Hz logging
-        self.create_timer(5.0, self.publish_arch_info)  # 0.2 Hz architecture info
+        self.create_timer(1.0, self.publish_arch_info)
         
         self.get_logger().info(f'✓ Decision Core Node initialized [{self.architecture_id}]')
     
@@ -418,6 +465,8 @@ class DecisionCoreNode(Node):
             return ReactiveStrategy(self)
         elif self.architecture_id == 'rule_dec':
             return RuleDecStrategy(self)
+        elif self.architecture_id == 'decpomdp_heuristic':
+            return DecPOMDPHeuristicStrategy(self, self.dec_pomdp)
         elif self.architecture_id == 'marl_decpomdp':
             return MARLDecPOMDPStrategy(self, self.dec_pomdp, self.marl_agent)
         else:
@@ -429,8 +478,18 @@ class DecisionCoreNode(Node):
         msg = String()
         msg.data = json.dumps({
             'architecture_id': self.architecture_id,
+            'run_id': self.run_id,
+            'architecture': self.architecture_id,
+            'architecture_requested': self.architecture_id,
+            'architecture_effective': self.architecture_effective,
             'planner_mode': self.planner_mode,
             'use_marl': self.use_marl,
+            'marl_model_loaded': self.marl_model_loaded,
+            'marl_model_path': self.model_path,
+            'marl_model_exists': bool(self.model_path and os.path.exists(self.model_path)),
+            'marl_model_allowed_for_proof': self.marl_model_allowed_for_proof,
+            'marl_model_type': self.marl_model_type,
+            'validity_class': self.validity_class,
             'use_dec_pomdp': self.use_dec_pomdp,
             'scenario_id': self.scenario_id,
             'seed': self.seed,

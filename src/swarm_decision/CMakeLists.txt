@@ -8,4 +8,5 @@ install(PROGRAMS
     ${PROJECT_NAME}/decision_core_node.py
     DESTINATION lib/${PROJECT_NAME}
 )
+install(DIRECTORY models DESTINATION share/${PROJECT_NAME})
 ament_package()

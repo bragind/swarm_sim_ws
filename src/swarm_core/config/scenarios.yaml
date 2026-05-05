@@ -1,0 +1,97 @@
+scenarios:
+  S1:
+    scenario_id: S1
+    description: "Base navigation: nominal communication, moderate obstacle count, no agent failures."
+    world_file: wkr_test_field_light.world
+    num_uavs: 5
+    num_ugvs: 3
+    num_support_nodes: 0
+    num_agents_total: 8
+    obstacle_density: 0.35
+    dynamic_obstacles: 2
+    packet_loss: 0.00
+    latency_ms: 20.0
+    agent_failure_ratio: 0.0
+    compute_delay_ms: 0.0
+    mission_timeout_s: 120.0
+    seed: 43
+  S2:
+    scenario_id: S2
+    description: "Dense obstacle field with increased static and dynamic obstacle density."
+    world_file: wkr_test_field_light.world
+    num_uavs: 5
+    num_ugvs: 3
+    num_support_nodes: 0
+    num_agents_total: 8
+    obstacle_density: 0.75
+    dynamic_obstacles: 5
+    packet_loss: 0.02
+    latency_ms: 25.0
+    agent_failure_ratio: 0.0
+    compute_delay_ms: 0.0
+    mission_timeout_s: 150.0
+    seed: 43
+  S3:
+    scenario_id: S3
+    description: "Communication degradation with packet loss up to 0.25 and latency up to 80 ms."
+    world_file: wkr_test_field_light.world
+    num_uavs: 5
+    num_ugvs: 3
+    num_support_nodes: 0
+    num_agents_total: 8
+    obstacle_density: 0.35
+    dynamic_obstacles: 2
+    packet_loss: 0.25
+    latency_ms: 80.0
+    agent_failure_ratio: 0.0
+    compute_delay_ms: 0.0
+    mission_timeout_s: 150.0
+    seed: 43
+  S4:
+    scenario_id: S4
+    description: "Failure of part of the swarm: one or two agents become unavailable mid-mission."
+    world_file: wkr_test_field_light.world
+    num_uavs: 5
+    num_ugvs: 3
+    num_support_nodes: 0
+    num_agents_total: 8
+    obstacle_density: 0.40
+    dynamic_obstacles: 2
+    packet_loss: 0.05
+    latency_ms: 35.0
+    agent_failure_ratio: 0.25
+    compute_delay_ms: 0.0
+    mission_timeout_s: 150.0
+    seed: 43
+  S5:
+    scenario_id: S5
+    description: "Compute degradation through artificial decision delay or reduced decision-node frequency."
+    world_file: wkr_test_field_light.world
+    num_uavs: 5
+    num_ugvs: 3
+    num_support_nodes: 0
+    num_agents_total: 8
+    obstacle_density: 0.35
+    dynamic_obstacles: 2
+    packet_loss: 0.02
+    latency_ms: 30.0
+    agent_failure_ratio: 0.0
+    compute_delay_ms: 120.0
+    mission_timeout_s: 150.0
+    seed: 43
+  S6:
+    scenario_id: S6
+    description: "Combined stress: dense obstacles, communication degradation, and partial agent failure."
+    world_file: wkr_test_field_light.world
+    num_uavs: 5
+    num_ugvs: 3
+    num_support_nodes: 0
+    num_agents_total: 8
+    obstacle_density: 0.80
+    dynamic_obstacles: 5
+    packet_loss: 0.25
+    latency_ms: 80.0
+    agent_failure_ratio: 0.25
+    compute_delay_ms: 120.0
+    mission_timeout_s: 180.0
+    seed: 43

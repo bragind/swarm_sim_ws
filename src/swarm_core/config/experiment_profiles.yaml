@@ -1,0 +1,17 @@
+profiles:
+  quick:
+    coverage_threshold: 0.30
+    connectivity_threshold: 0.40
+    mission_timeout_s: 60.0
+    shutdown_grace_s: 15.0
+    min_active_agents: 6
+    proof_mode: false
+    simulation_mode: headless_fast_kinematic
+  full:
+    coverage_threshold: 0.60
+    connectivity_threshold: 0.50
+    mission_timeout_s: 180.0
+    shutdown_grace_s: 30.0
+    min_active_agents: 6
+    proof_mode: true
+    simulation_mode: gazebo_headless

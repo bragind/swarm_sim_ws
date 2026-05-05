@@ -1,4 +1,3 @@
-@"
 # ROS 2 build artifacts
 build/
 install/
@@ -7,16 +6,23 @@ log/
 # Python cache
 __pycache__/
 *.pyc
+.pytest_cache/
 
-# Backup files
+# Local experiment outputs
+results/
+sim_storage/
+
+# ROS bags and logs
+*.bag
+*.db3
+*.log
+
+# Backup and OS files
 *.bak
 *.backup
 *~
-
-# Docker volumes and storage
-sim_storage/
-results/
-thesis_figures/
+.DS_Store
+Thumbs.db
 
 # IDE
 .vscode/
@@ -24,4 +30,3 @@ thesis_figures/
 
 # Temporary container changes dump
 container_changes/
-"@ | Out-File -Encoding UTF8 .gitignore

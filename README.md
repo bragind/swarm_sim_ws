@@ -1,4 +1,248 @@
 # swarm_sim_ws
+
+## Результаты full diagnostic для ВКР
+
+Финальный набор данных для главы 4:
+
+- контейнер: `/home/swarm/sim_storage/wkr_full_diagnostic_fix1`
+- Windows: `C:\Users\diman\sim_storage\wkr_full_diagnostic_fix1`
+- русские графики: `figures_ru/`
+- таблицы для главы 4: `tables_ru/`
+- финальный текст разделов 4.4-4.9: `docs/EXPERIMENTS_WKR.md`
+
+Серия содержит 720 запусков: 697 `valid_success`, 23 `valid_failure`,
+0 diagnostic rows, 0 `incomplete_or_timeout`, 0 `runner_timeout_reached`.
+В ВКР эти результаты следует трактовать как full diagnostic без обученной
+MARL-политики. Исследуется реализованный контур `Dec-POMDP + эвристическая
+коррекция`.
+
+Full proof MARL не выполнялся, так как отсутствует обученный checkpoint
+`models/marl/wkr_qmix_policy.pt`. Тестовый `models/marl/test_policy.pt`
+использовался только для диагностической проверки загрузки и не является
+proof-valid моделью.
+
+## WKR final diagnostic commands
+
+Рабочая ветка: `fix/wkr-experiment-validation`.
+
+Quick diagnostic:
+
+```bash
+source /opt/ros/humble/setup.bash
+colcon build
+source install/setup.bash
+
+python3 scripts/run_wkr_experiments.py \
+  --quick \
+  --simulation-mode headless_fast_kinematic \
+  --parallel 1 \
+  --output /home/swarm/sim_storage/wkr_quick_check
+```
+
+Full diagnostic fix1, используемый для главы 4:
+
+```bash
+python3 scripts/run_wkr_experiments.py \
+  --full-diagnostic \
+  --simulation-mode headless_fast_kinematic \
+  --parallel 1 \
+  --seeds 43:72 \
+  --output /home/swarm/sim_storage/wkr_full_diagnostic_fix1
+
+python3 scripts/validate_results.py \
+  --input /home/swarm/sim_storage/wkr_full_diagnostic_fix1/final_metrics.csv \
+  --profile full
+
+python3 scripts/diagnose_full_failures.py \
+  --input /home/swarm/sim_storage/wkr_full_diagnostic_fix1/final_metrics.csv \
+  --output /home/swarm/sim_storage/wkr_full_diagnostic_fix1/diagnostics
+
+python3 scripts/analyze_wkr_results.py \
+  --input /home/swarm/sim_storage/wkr_full_diagnostic_fix1/final_metrics.csv \
+  --output /home/swarm/sim_storage/wkr_full_diagnostic_fix1/analysis \
+  --profile full
+
+python3 scripts/plot_wkr_results.py \
+  --input /home/swarm/sim_storage/wkr_full_diagnostic_fix1/final_metrics.csv \
+  --output /home/swarm/sim_storage/wkr_full_diagnostic_fix1/figures \
+  --profile full
+```
+
+Results:
+
+- container: `/home/swarm/sim_storage/wkr_full_diagnostic_fix1`
+- Windows: `C:\Users\diman\sim_storage\wkr_full_diagnostic_fix1`
+
+MARL plumbing test, diagnostic only:
+
+```bash
+python3 scripts/create_test_marl_checkpoint.py
+python3 scripts/run_wkr_experiments.py \
+  --quick \
+  --include-marl \
+  --allow-test-marl-model \
+  --marl-model-path models/marl/test_policy.pt \
+  --simulation-mode headless_fast_kinematic \
+  --parallel 1 \
+  --output /home/swarm/sim_storage/wkr_quick_marl_plumbing
+```
+
+Full proof remains blocked until `models/marl/wkr_qmix_policy.pt` exists and
+passes:
+
+```bash
+python3 scripts/inspect_marl_checkpoint.py \
+  --model models/marl/wkr_qmix_policy.pt \
+  --require-proof
+```
+
+Do not use `models/marl/test_policy.pt` for proof claims. It must remain
+`trained=false` and `allowed_for_wkr_proof=false`.
+
+## Current WKR Commands
+
+The three WKR modes are intentionally separated. Do not edit generated CSV
+files manually, and do not use `models/marl/test_policy.pt` for proof claims.
+
+Quick diagnostic without MARL:
+
+```bash
+colcon build
+source install/setup.bash
+python3 scripts/run_wkr_experiments.py \
+  --quick \
+  --simulation-mode headless_fast_kinematic \
+  --parallel 1 \
+  --output ~/sim_storage/wkr_quick
+python3 scripts/validate_results.py --input ~/sim_storage/wkr_quick/final_metrics.csv --profile quick
+python3 scripts/analyze_wkr_results.py --input ~/sim_storage/wkr_quick/final_metrics.csv --output ~/sim_storage/wkr_quick/analysis --profile quick
+python3 scripts/plot_wkr_results.py --input ~/sim_storage/wkr_quick/final_metrics.csv --output ~/sim_storage/wkr_quick/figures --profile quick
+```
+
+Full diagnostic without MARL:
+
+```bash
+python3 scripts/run_wkr_experiments.py \
+  --full-diagnostic \
+  --simulation-mode headless_fast_kinematic \
+  --parallel 1 \
+  --seeds 43:72 \
+  --output /home/swarm/sim_storage/wkr_full_diagnostic
+
+python3 scripts/validate_results.py \
+  --input /home/swarm/sim_storage/wkr_full_diagnostic/final_metrics.csv \
+  --profile full
+
+python3 scripts/analyze_wkr_results.py \
+  --input /home/swarm/sim_storage/wkr_full_diagnostic/final_metrics.csv \
+  --output /home/swarm/sim_storage/wkr_full_diagnostic/analysis \
+  --profile full
+
+python3 scripts/plot_wkr_results.py \
+  --input /home/swarm/sim_storage/wkr_full_diagnostic/final_metrics.csv \
+  --output /home/swarm/sim_storage/wkr_full_diagnostic/figures \
+  --profile full
+```
+
+This matrix is 6 scenarios x 4 architectures x 30 seeds = 720 runs:
+`central_a_star`, `reactive`, `rule_dec`, `decpomdp_heuristic`.
+
+Quick MARL plumbing test:
+
+```bash
+python3 scripts/create_test_marl_checkpoint.py
+python3 scripts/run_wkr_experiments.py --quick --include-marl --allow-test-marl-model --marl-model-path models/marl/test_policy.pt --output ~/sim_storage/wkr_quick_marl_plumbing
+```
+
+Train and inspect a real MARL checkpoint:
+
+```bash
+python3 scripts/train_wkr_marl.py \
+  --scenarios S1,S2,S3,S4,S5,S6 \
+  --episodes 1000 \
+  --seeds 43:72 \
+  --output models/marl/wkr_qmix_policy.pt \
+  --num-agents 8
+
+python3 scripts/inspect_marl_checkpoint.py \
+  --model models/marl/wkr_qmix_policy.pt \
+  --require-proof
+```
+
+MARL smoke proof:
+
+```bash
+python3 scripts/run_wkr_experiments.py \
+  --full-proof \
+  --scenarios S1 \
+  --architectures reactive,marl_decpomdp \
+  --seeds 43:45 \
+  --require-marl-model \
+  --marl-model-path models/marl/wkr_qmix_policy.pt \
+  --simulation-mode headless_fast_kinematic \
+  --parallel 1 \
+  --output /home/swarm/sim_storage/wkr_marl_smoke
+
+python3 scripts/validate_results.py \
+  --input /home/swarm/sim_storage/wkr_marl_smoke/final_metrics.csv \
+  --profile full \
+  --proof-mode
+```
+
+Full proof experiment:
+
+```bash
+python3 scripts/run_wkr_experiments.py \
+  --full-proof \
+  --require-marl-model \
+  --marl-model-path models/marl/wkr_qmix_policy.pt \
+  --simulation-mode headless_fast_kinematic \
+  --parallel 1 \
+  --seeds 43:72 \
+  --output /home/swarm/sim_storage/wkr_full_proof
+
+python3 scripts/validate_results.py \
+  --input /home/swarm/sim_storage/wkr_full_proof/final_metrics.csv \
+  --profile full \
+  --proof-mode
+
+python3 scripts/analyze_wkr_results.py \
+  --input /home/swarm/sim_storage/wkr_full_proof/final_metrics.csv \
+  --output /home/swarm/sim_storage/wkr_full_proof/analysis \
+  --profile full \
+  --proof-mode
+
+python3 scripts/plot_wkr_results.py \
+  --input /home/swarm/sim_storage/wkr_full_proof/final_metrics.csv \
+  --output /home/swarm/sim_storage/wkr_full_proof/figures \
+  --profile full \
+  --proof-mode
+```
+
+Quick uses `headless_fast_kinematic` and is diagnostic only. Proof MARL requires
+`models/marl/wkr_qmix_policy.pt` with `trained = true` and
+`allowed_for_wkr_proof = true`.
+
+## WKR experiment validation workflow
+
+Основная воспроизводимая матрица экспериментов описана в `docs/EXPERIMENTS_WKR.md`.
+
+```bash
+colcon build --symlink-install
+source install/setup.bash
+python3 scripts/run_wkr_experiments.py --quick --output ~/sim_storage/wkr_quick
+python3 scripts/validate_results.py --input ~/sim_storage/wkr_quick/final_metrics.csv
+python3 scripts/analyze_wkr_results.py --input ~/sim_storage/wkr_quick/final_metrics.csv --output ~/sim_storage/wkr_quick/analysis
+python3 scripts/plot_wkr_results.py --input ~/sim_storage/wkr_quick/final_metrics.csv --output ~/sim_storage/wkr_quick/figures
+```
+
+Full-запуск:
+
+```bash
+python3 scripts/run_wkr_experiments.py --full --parallel 1 --output ~/sim_storage/wkr_full
+```
+
+Финальные метрики пишутся в `final_metrics.csv` по правилу: одна строка на один `run_id`. Периодические значения пишутся отдельно в `timeseries_metrics.csv`. Запуск `marl_decpomdp` не считается валидным MARL-экспериментом, если модель не загружена.
 A test bench for distributed control system algorithms
 # 1. Клонирование и настройка
 cd ~/

@@ -20,6 +20,8 @@ setup(
         'console_scripts': [
             'experiment_logger = swarm_utils.experiment_logger:main',
             'communication_emulator = swarm_utils.communication_emulator:main',
+            'metrics_calculator = swarm_utils.metrics_calculator:main',
+            'mission_supervisor = swarm_utils.mission_supervisor:main',
             'swarm_state_publisher = swarm_utils.swarm_state_publisher:main',
         ],
     },

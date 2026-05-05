@@ -1,0 +1,44 @@
+<?xml version="1.0" ?>
+<sdf version="1.7">
+  <world name="wkr_test_field_light">
+    <physics type="ode">
+      <max_step_size>0.02</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <scene>
+      <ambient>0.55 0.55 0.55 1</ambient>
+      <background>0.78 0.82 0.86 1</background>
+      <shadows>false</shadows>
+    </scene>
+    <model name="mission_area_120x120">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <link name="link">
+        <collision name="ground_collision">
+          <geometry><box><size>120 120 0.05</size></box></geometry>
+        </collision>
+        <visual name="ground_visual">
+          <geometry><box><size>120 120 0.05</size></box></geometry>
+          <material><ambient>0.62 0.70 0.66 1</ambient><diffuse>0.62 0.70 0.66 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <!-- Static obstacle blocks. Scenario difficulty is controlled by launch/config parameters. -->
+    <model name="static_obstacle_north"><static>true</static><pose>-25 22 2 0 0 0</pose><link name="link"><collision name="collision"><geometry><box><size>8 12 4</size></box></geometry></collision><visual name="visual"><geometry><box><size>8 12 4</size></box></geometry><material><ambient>0.46 0.46 0.48 1</ambient></material></visual></link></model>
+    <model name="static_obstacle_center"><static>true</static><pose>10 -4 3 0 0 0</pose><link name="link"><collision name="collision"><geometry><box><size>10 7 6</size></box></geometry></collision><visual name="visual"><geometry><box><size>10 7 6</size></box></geometry><material><ambient>0.42 0.44 0.46 1</ambient></material></visual></link></model>
+    <model name="static_obstacle_east"><static>true</static><pose>33 18 2.5 0 0 0</pose><link name="link"><collision name="collision"><geometry><box><size>7 11 5</size></box></geometry></collision><visual name="visual"><geometry><box><size>7 11 5</size></box></geometry><material><ambient>0.50 0.48 0.44 1</ambient></material></visual></link></model>
+    <model name="dynamic_obstacle_marker_1"><static>false</static><pose>-10 -30 1 0 0 0</pose><link name="link"><inertial><mass>1</mass></inertial><collision name="collision"><geometry><sphere><radius>1.2</radius></sphere></geometry></collision><visual name="visual"><geometry><sphere><radius>1.2</radius></sphere></geometry><material><ambient>0.75 0.25 0.20 1</ambient></material></visual></link></model>
+    <model name="dynamic_obstacle_marker_2"><static>false</static><pose>28 -22 1 0 0 0</pose><link name="link"><inertial><mass>1</mass></inertial><collision name="collision"><geometry><sphere><radius>1.2</radius></sphere></geometry></collision><visual name="visual"><geometry><sphere><radius>1.2</radius></sphere></geometry><material><ambient>0.75 0.25 0.20 1</ambient></material></visual></link></model>
+    <!-- Restricted and risk zones are lightweight visual markers used by documentation and coverage calculations. -->
+    <model name="restricted_zone"><static>true</static><pose>-35 -25 0.04 0 0 0</pose><link name="link"><visual name="visual"><geometry><box><size>18 14 0.04</size></box></geometry><material><ambient>0.70 0.15 0.15 0.45</ambient><diffuse>0.70 0.15 0.15 0.45</diffuse></material></visual></link></model>
+    <model name="risk_zone"><static>true</static><pose>25 32 0.05 0 0 0</pose><link name="link"><visual name="visual"><geometry><box><size>22 12 0.04</size></box></geometry><material><ambient>0.85 0.62 0.16 0.45</ambient><diffuse>0.85 0.62 0.16 0.45</diffuse></material></visual></link></model>
+    <model name="waypoint_cluster"><static>true</static><pose>0 0 0 0 0 0</pose><link name="link">
+      <visual name="wp1"><pose>-45 -45 0.1 0 0 0</pose><geometry><cylinder><radius>0.8</radius><length>0.1</length></cylinder></geometry><material><ambient>0.10 0.35 0.85 1</ambient></material></visual>
+      <visual name="wp2"><pose>45 -42 0.1 0 0 0</pose><geometry><cylinder><radius>0.8</radius><length>0.1</length></cylinder></geometry><material><ambient>0.10 0.35 0.85 1</ambient></material></visual>
+      <visual name="wp3"><pose>42 42 0.1 0 0 0</pose><geometry><cylinder><radius>0.8</radius><length>0.1</length></cylinder></geometry><material><ambient>0.10 0.35 0.85 1</ambient></material></visual>
+      <visual name="wp4"><pose>-42 44 0.1 0 0 0</pose><geometry><cylinder><radius>0.8</radius><length>0.1</length></cylinder></geometry><material><ambient>0.10 0.35 0.85 1</ambient></material></visual>
+    </link></model>
+    <light name="sun" type="directional"><pose>0 0 80 0 0 0</pose><diffuse>0.9 0.9 0.9 1</diffuse><direction>-0.4 0.3 -1</direction></light>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"></plugin>
+  </world>
+</sdf>

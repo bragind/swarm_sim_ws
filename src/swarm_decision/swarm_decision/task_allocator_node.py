@@ -14,6 +14,12 @@ from collections import defaultdict
 class TaskAllocatorNode(Node):
     def __init__(self):
         super().__init__('task_allocator')
+        self.declare_parameter('scenario_id', 'S1')
+        self.declare_parameter('architecture', '')
+        self.declare_parameter('seed', 42)
+        self.declare_parameter('num_agents', 8)
+        self.declare_parameter('num_uavs', 5)
+        self.declare_parameter('num_ugvs', 3)
         self.declare_parameter('utility_weights', [0.5, 0.3, 0.2])  # time, energy, safety
         self.weights = np.array(self.get_parameter('utility_weights').value)
         
