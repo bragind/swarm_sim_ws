@@ -2,13 +2,10 @@
 
 ## Результаты full diagnostic для ВКР
 
-Финальный набор данных для главы 4:
+Финальный набор данных:
 
-- контейнер: `/home/swarm/sim_storage/wkr_full_diagnostic_fix1`
-- Windows: `C:\Users\diman\sim_storage\wkr_full_diagnostic_fix1`
-- русские графики: `figures_ru/`
-- таблицы для главы 4: `tables_ru/`
-- финальный текст разделов 4.4-4.9: `docs/EXPERIMENTS_WKR.md`
+- графики: `figures_ru/`
+- таблицы: `tables_ru/`
 
 Серия содержит 720 запусков: 697 `valid_success`, 23 `valid_failure`,
 0 diagnostic rows, 0 `incomplete_or_timeout`, 0 `runner_timeout_reached`.
