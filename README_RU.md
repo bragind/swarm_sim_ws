@@ -118,26 +118,70 @@ python3 scripts/plot_wkr_results.py \
   --profile full
 ```
 
+
+## Запуск симуляционного стенда в контейнере
+
+Ниже приведен типовой пример запуска в Docker-контейнере. Такой режим удобен, когда нужно получить воспроизводимую среду без локальной настройки зависимостей ROS 2.
+
+### Сборка контейнерного образа
+
+```bash
+cd swarm_sim_ws
+docker build -t swarm-sim-stand -f docker/Dockerfile .
+```
+
+### Быстрый запуск в контейнере
+
+```bash
+mkdir -p $HOME/sim_storage
+
+docker run --rm -it   -v "$(pwd)":/workspace/swarm_sim_ws   -v "$HOME/sim_storage":/sim_storage   -w /workspace/swarm_sim_ws   swarm-sim-stand   bash -lc '
+    source /opt/ros/humble/setup.bash &&
+    colcon build --symlink-install &&
+    source install/setup.bash &&
+    python3 scripts/run_wkr_experiments.py       --quick       --simulation-mode headless_fast_kinematic       --parallel 1       --output /sim_storage/swarm_quick &&
+    python3 scripts/validate_results.py       --input /sim_storage/swarm_quick/final_metrics.csv       --profile quick &&
+    python3 scripts/analyze_wkr_results.py       --input /sim_storage/swarm_quick/final_metrics.csv       --output /sim_storage/swarm_quick/analysis       --profile quick &&
+    python3 scripts/plot_wkr_results.py       --input /sim_storage/swarm_quick/final_metrics.csv       --output /sim_storage/swarm_quick/figures       --profile quick
+  '
+```
+
+### Полный диагностический запуск в контейнере
+
+```bash
+docker run --rm -it   -v "$(pwd)":/workspace/swarm_sim_ws   -v "$HOME/sim_storage":/sim_storage   -w /workspace/swarm_sim_ws   swarm-sim-stand   bash -lc '
+    source /opt/ros/humble/setup.bash &&
+    colcon build --symlink-install &&
+    source install/setup.bash &&
+    python3 scripts/run_wkr_experiments.py       --full-diagnostic       --simulation-mode headless_fast_kinematic       --parallel 1       --seeds 43:72       --output /sim_storage/swarm_full_diagnostic &&
+    python3 scripts/validate_results.py       --input /sim_storage/swarm_full_diagnostic/final_metrics.csv       --profile full &&
+    python3 scripts/analyze_wkr_results.py       --input /sim_storage/swarm_full_diagnostic/final_metrics.csv       --output /sim_storage/swarm_full_diagnostic/analysis       --profile full &&
+    python3 scripts/plot_wkr_results.py       --input /sim_storage/swarm_full_diagnostic/final_metrics.csv       --output /sim_storage/swarm_full_diagnostic/figures       --profile full
+  '
+```
+
+> Результаты сохраняются на хосте в каталоге `$HOME/sim_storage`, смонтированном в контейнер как `/sim_storage`.
+
 ## Артефакты результатов
 
 В комплект документации входят нейтральные копии опубликованных таблиц и заново построенные графики на основе тех же значений метрик:
 
 ```text
 tables/
-├── experiment_matrix.csv / .md
-├── validation_summary.csv / .md
-├── success_rate_by_scenario.csv / .md
-├── mean_metrics_by_scenario_architecture.csv / .md
-└── best_architecture_by_scenario.csv / .md
+├── validation_summary.csv
+├── architecture_run_distribution.csv
+├── scenario_run_distribution.csv
+├── success_rate_by_architecture.csv
+├── success_rate_by_scenario.csv
+└── success_rate_by_scenario_architecture.csv
 
 figures/
 ├── fig_validation_outcomes.png
+├── fig_runs_by_architecture.png
+├── fig_runs_by_scenario.png
+├── fig_success_rate_by_architecture.png
 ├── fig_success_rate_by_scenario.png
-├── fig_connectivity_by_architecture.png
-├── fig_coverage_by_architecture.png
-├── fig_collisions_by_architecture.png
-├── fig_energy_by_architecture.png
-└── fig_integral_score.png
+└── fig_success_rate_heatmap.png
 ```
 
 ## Интерпретация метрик
