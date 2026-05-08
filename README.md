@@ -1,191 +1,328 @@
 # Swarm Simulation Stand
 
-A reproducible ROS 2-oriented simulation stand for comparing distributed control architectures for a swarm of autonomous agents.
+ROS 2-ориентированный симуляционный стенд для воспроизводимого сравнения архитектур управления роем автономных агентов.
 
-The project contains scripts for batch execution, scenario management, metric collection, data-quality validation, result aggregation, and figure generation. The current validated experiment set uses an accelerated deterministic headless kinematic simulation mode for high-volume repeatable runs.
+Стенд предназначен для пакетного запуска сценариев, моделирования поведения агентов, сбора метрик, проверки качества данных, анализа результатов и построения графиков. Основная валидированная серия выполнена в ускоренном детерминированном режиме `headless_fast_kinematic`, который позволяет проводить массовые headless-запуски без тяжелой физической симуляции и визуализации.
 
-## What this repository provides
+> В текущей доказательной серии используется реализованный контур `Dec-POMDP + эвристическая коррекция`. Полноценный proof-режим с обученной MARL-политикой требует отдельного обученного checkpoint и не смешивается с диагностическим режимом.
 
-- Batch execution of scenario/architecture/seed matrices.
-- Four baseline/control architectures: `central_a_star`, `reactive`, `rule_dec`, and `decpomdp_heuristic`.
-- Six scenario classes: nominal operation, dense obstacles, communication degradation, partial agent failure, computational degradation, and combined stress.
-- Final metrics in `final_metrics.csv` and optional time-series metrics in `timeseries_metrics.csv`.
-- Validation, analysis, and plotting scripts.
-- Ready-to-use result tables and figures under `docs/tables` and `docs/figures`.
+## Возможности
 
-## Repository structure
+- Запуск матриц экспериментов `scenario_id × architecture × seed`.
+- Поддержка четырех архитектур управления:
+  - `central_a_star`;
+  - `reactive`;
+  - `rule_dec`;
+  - `decpomdp_heuristic`.
+- Шесть сценариев:
+  - S1 — номинальная навигация;
+  - S2 — плотные препятствия;
+  - S3 — деградация связи;
+  - S4 — частичный отказ агентов;
+  - S5 — вычислительная деградация;
+  - S6 — комбинированный стресс.
+- Запись `final_metrics.csv` и `timeseries_metrics.csv`.
+- Валидация результатов через `validate_results.py`.
+- Анализ результатов через `analyze_wkr_results.py`.
+- Построение графиков через `plot_wkr_results.py`.
+- Готовые таблицы и графики в `docs/tables/wkr` и `docs/figures/wkr`.
+
+## Структура репозитория
 
 ```text
 swarm_sim_ws/
-├── docker/                 # Container/runtime environment assets
-├── docs/                   # Diagrams, generated figures, generated tables
-│   ├── figures/wkr/        # Published experiment figures in the source branch
-│   ├── tables/wkr/         # Published experiment tables in the source branch
-│   └── SIMULATION_STAND_UML.md
-├── scripts/                # Batch runner, validation, analysis, plotting utilities
-├── src/                    # ROS 2 packages and simulation nodes
-├── tests/                  # Test and validation assets
+├── docker/                         # Docker/runtime окружение
+├── docs/
+│   ├── figures/wkr/                # Графики по диагностической серии
+│   ├── tables/wkr/                 # Таблицы по диагностической серии
+│   ├── SIMULATION_STAND_UML.md     # UML/data-flow диаграмма
+│   ├── wkr_virtual_environment_topdown.png
+│   └── wkr_virtual_environment_topdown.svg
+├── scripts/                        # Batch-runner, validation, analysis, plotting
+├── src/                            # ROS 2 пакеты и узлы стенда
+├── tests/                          # Тесты и проверки
 └── README.md
 ```
 
-## Current validated result set
+## Архитектура стенда
 
-The published diagnostic matrix contains 720 runs:
+Стенд построен как ROS 2-oriented pipeline:
 
-| Metric | Value |
+```text
+run_wkr_experiments.py
+    ↓
+simulation.launch.py
+    ↓
+swarm_state_publisher
+    ↓
+decision_core_node
+    ↓
+metrics_calculator / mission_supervisor / experiment_logger
+    ↓
+final_metrics.csv
+    ↓
+validate_results.py / analyze_wkr_results.py / plot_wkr_results.py
+```
+
+Основные модули:
+
+| Модуль | Назначение |
+|---|---|
+| `scripts/run_wkr_experiments.py` | Формирует матрицу сценариев, архитектур и seed; запускает серию экспериментов |
+| `swarm_core/launch/simulation.launch.py` | Передает параметры запуска в ROS 2-узлы стенда |
+| `config/scenarios.yaml` | Описывает сценарии S1-S6 и параметры деградации |
+| `swarm_state_publisher` | Публикует агрегированное состояние роя |
+| `decision_core_node` | Реализует выбор архитектуры управления |
+| `communication_emulator` | Моделирует задержки, потери и деградацию связи |
+| `metrics_calculator` | Считает coverage, connectivity, collisions, energy и integral score |
+| `mission_supervisor` | Определяет завершение миссии, успех или неуспех |
+| `experiment_logger` | Пишет финальные и временные метрики |
+| `validate_results.py` | Проверяет валидность итогового набора данных |
+| `analyze_wkr_results.py` | Агрегирует и сравнивает результаты |
+| `plot_wkr_results.py` | Строит графики |
+
+Подробная диаграмма приведена в [`docs/SIMULATION_STAND_UML.md`](docs/SIMULATION_STAND_UML.md).
+
+## Результаты валидированной серии
+
+Полная диагностическая серия:
+
+```text
+6 сценариев × 4 архитектуры × 30 seed = 720 запусков
+```
+
+Сводка валидации:
+
+| Показатель | Значение |
 |---|---:|
-| Total runs | 720 |
+| Всего запусков | 720 |
 | valid_success | 697 |
 | valid_failure | 23 |
 | diagnostic rows | 0 |
 | incomplete_or_timeout | 0 |
 | runner_timeout_reached | 0 |
-| Overall success rate | 96.8% |
+| Общая успешность | 96.8 % |
 
-The matrix is:
-
-```text
-6 scenarios x 4 architectures x 30 seeds = 720 runs
-```
-
-Architectures used in the published matrix:
-
-- `central_a_star` — centralized planning baseline.
-- `reactive` — reactive local control baseline.
-- `rule_dec` — decentralized rule-based algorithm.
-- `decpomdp_heuristic` — Dec-POMDP-style heuristic correction policy.
-
-## Simulation mode
-
-The current validated run set uses:
+Основной набор результатов находится в:
 
 ```text
-headless_fast_kinematic
+docs/tables/wkr/
+├── table_4_1_experiment_matrix.md
+├── table_4_2_validity_summary.md
+├── table_4_3_success_rate.md
+├── table_4_4_mean_metrics.md
+└── table_4_5_best_architecture_by_scenario.md
 ```
 
-This mode is intended for fast, deterministic, repeatable algorithmic testing. It is not a replacement for a full physics-level Gazebo/DDS validation campaign. Use it as the first layer of regression, benchmarking, and scenario-based comparison.
+Графики находятся в:
 
-## Quick start
+```text
+docs/figures/wkr/
+├── fig_collisions_boxplot.png
+├── fig_connectivity_by_architecture.png
+├── fig_coverage_by_architecture.png
+├── fig_energy_boxplot.png
+├── fig_integral_score.png
+├── fig_success_rate_by_scenario.png
+└── fig_validation_summary.png
+```
+
+## Быстрый запуск
 
 ```bash
+git clone -b fix/wkr-experiment-validation https://github.com/bragind/swarm_sim_ws.git
+cd swarm_sim_ws
+
 source /opt/ros/humble/setup.bash
+rosdep update
+rosdep install --from-paths src --ignore-src -r -y
+
 colcon build --symlink-install
 source install/setup.bash
 
-python3 scripts/run_wkr_experiments.py   --quick   --simulation-mode headless_fast_kinematic   --parallel 1   --output ~/sim_storage/swarm_quick
+python3 scripts/run_wkr_experiments.py \
+  --quick \
+  --simulation-mode headless_fast_kinematic \
+  --parallel 1 \
+  --output ~/sim_storage/swarm_quick
 
-python3 scripts/validate_results.py   --input ~/sim_storage/swarm_quick/final_metrics.csv   --profile quick
+python3 scripts/validate_results.py \
+  --input ~/sim_storage/swarm_quick/final_metrics.csv \
+  --profile quick
 
-python3 scripts/analyze_wkr_results.py   --input ~/sim_storage/swarm_quick/final_metrics.csv   --output ~/sim_storage/swarm_quick/analysis   --profile quick
+python3 scripts/analyze_wkr_results.py \
+  --input ~/sim_storage/swarm_quick/final_metrics.csv \
+  --output ~/sim_storage/swarm_quick/analysis \
+  --profile quick
 
-python3 scripts/plot_wkr_results.py   --input ~/sim_storage/swarm_quick/final_metrics.csv   --output ~/sim_storage/swarm_quick/figures   --profile quick
+python3 scripts/plot_wkr_results.py \
+  --input ~/sim_storage/swarm_quick/final_metrics.csv \
+  --output ~/sim_storage/swarm_quick/figures \
+  --profile quick
 ```
 
-## Full diagnostic run
+## Полный диагностический запуск
 
 ```bash
-python3 scripts/run_wkr_experiments.py   --full-diagnostic   --simulation-mode headless_fast_kinematic   --parallel 1   --seeds 43:72   --output ~/sim_storage/swarm_full_diagnostic
+python3 scripts/run_wkr_experiments.py \
+  --full-diagnostic \
+  --simulation-mode headless_fast_kinematic \
+  --parallel 1 \
+  --seeds 43:72 \
+  --output ~/sim_storage/swarm_full_diagnostic
 
-python3 scripts/validate_results.py   --input ~/sim_storage/swarm_full_diagnostic/final_metrics.csv   --profile full
+python3 scripts/validate_results.py \
+  --input ~/sim_storage/swarm_full_diagnostic/final_metrics.csv \
+  --profile full
 
-python3 scripts/analyze_wkr_results.py   --input ~/sim_storage/swarm_full_diagnostic/final_metrics.csv   --output ~/sim_storage/swarm_full_diagnostic/analysis   --profile full
+python3 scripts/analyze_wkr_results.py \
+  --input ~/sim_storage/swarm_full_diagnostic/final_metrics.csv \
+  --output ~/sim_storage/swarm_full_diagnostic/analysis \
+  --profile full
 
-python3 scripts/plot_wkr_results.py   --input ~/sim_storage/swarm_full_diagnostic/final_metrics.csv   --output ~/sim_storage/swarm_full_diagnostic/figures   --profile full
+python3 scripts/plot_wkr_results.py \
+  --input ~/sim_storage/swarm_full_diagnostic/final_metrics.csv \
+  --output ~/sim_storage/swarm_full_diagnostic/figures \
+  --profile full
 ```
 
+## Запуск в Docker-контейнере
 
-## Running the simulation stand inside a container
-
-The example below shows a typical Docker-based workflow. This is useful when you want a reproducible ROS 2 environment without preparing all dependencies on the host.
-
-### Build the container image
+### Сборка образа
 
 ```bash
 cd swarm_sim_ws
 docker build -t swarm-sim-stand -f docker/Dockerfile .
 ```
 
-### Quick run in a container
+### Быстрая диагностическая серия в контейнере
 
 ```bash
-mkdir -p $HOME/sim_storage
+mkdir -p "$HOME/sim_storage"
 
-docker run --rm -it   -v "$(pwd)":/workspace/swarm_sim_ws   -v "$HOME/sim_storage":/sim_storage   -w /workspace/swarm_sim_ws   swarm-sim-stand   bash -lc '
+docker run --rm -it \
+  -v "$(pwd)":/workspace/swarm_sim_ws \
+  -v "$HOME/sim_storage":/sim_storage \
+  -w /workspace/swarm_sim_ws \
+  swarm-sim-stand \
+  bash -lc '
     source /opt/ros/humble/setup.bash &&
     colcon build --symlink-install &&
     source install/setup.bash &&
-    python3 scripts/run_wkr_experiments.py       --quick       --simulation-mode headless_fast_kinematic       --parallel 1       --output /sim_storage/swarm_quick &&
-    python3 scripts/validate_results.py       --input /sim_storage/swarm_quick/final_metrics.csv       --profile quick &&
-    python3 scripts/analyze_wkr_results.py       --input /sim_storage/swarm_quick/final_metrics.csv       --output /sim_storage/swarm_quick/analysis       --profile quick &&
-    python3 scripts/plot_wkr_results.py       --input /sim_storage/swarm_quick/final_metrics.csv       --output /sim_storage/swarm_quick/figures       --profile quick
+    python3 scripts/run_wkr_experiments.py \
+      --quick \
+      --simulation-mode headless_fast_kinematic \
+      --parallel 1 \
+      --output /sim_storage/swarm_quick &&
+    python3 scripts/validate_results.py \
+      --input /sim_storage/swarm_quick/final_metrics.csv \
+      --profile quick &&
+    python3 scripts/analyze_wkr_results.py \
+      --input /sim_storage/swarm_quick/final_metrics.csv \
+      --output /sim_storage/swarm_quick/analysis \
+      --profile quick &&
+    python3 scripts/plot_wkr_results.py \
+      --input /sim_storage/swarm_quick/final_metrics.csv \
+      --output /sim_storage/swarm_quick/figures \
+      --profile quick
   '
 ```
 
-### Full diagnostic run in a container
+### Полная диагностическая серия в контейнере
 
 ```bash
-docker run --rm -it   -v "$(pwd)":/workspace/swarm_sim_ws   -v "$HOME/sim_storage":/sim_storage   -w /workspace/swarm_sim_ws   swarm-sim-stand   bash -lc '
+docker run --rm -it \
+  -v "$(pwd)":/workspace/swarm_sim_ws \
+  -v "$HOME/sim_storage":/sim_storage \
+  -w /workspace/swarm_sim_ws \
+  swarm-sim-stand \
+  bash -lc '
     source /opt/ros/humble/setup.bash &&
     colcon build --symlink-install &&
     source install/setup.bash &&
-    python3 scripts/run_wkr_experiments.py       --full-diagnostic       --simulation-mode headless_fast_kinematic       --parallel 1       --seeds 43:72       --output /sim_storage/swarm_full_diagnostic &&
-    python3 scripts/validate_results.py       --input /sim_storage/swarm_full_diagnostic/final_metrics.csv       --profile full &&
-    python3 scripts/analyze_wkr_results.py       --input /sim_storage/swarm_full_diagnostic/final_metrics.csv       --output /sim_storage/swarm_full_diagnostic/analysis       --profile full &&
-    python3 scripts/plot_wkr_results.py       --input /sim_storage/swarm_full_diagnostic/final_metrics.csv       --output /sim_storage/swarm_full_diagnostic/figures       --profile full
+    python3 scripts/run_wkr_experiments.py \
+      --full-diagnostic \
+      --simulation-mode headless_fast_kinematic \
+      --parallel 1 \
+      --seeds 43:72 \
+      --output /sim_storage/swarm_full_diagnostic &&
+    python3 scripts/validate_results.py \
+      --input /sim_storage/swarm_full_diagnostic/final_metrics.csv \
+      --profile full &&
+    python3 scripts/analyze_wkr_results.py \
+      --input /sim_storage/swarm_full_diagnostic/final_metrics.csv \
+      --output /sim_storage/swarm_full_diagnostic/analysis \
+      --profile full &&
+    python3 scripts/plot_wkr_results.py \
+      --input /sim_storage/swarm_full_diagnostic/final_metrics.csv \
+      --output /sim_storage/swarm_full_diagnostic/figures \
+      --profile full
   '
 ```
 
-> Results are stored on the host under `$HOME/sim_storage`, mounted into the container as `/sim_storage`.
+Результаты будут сохранены на хосте в `$HOME/sim_storage`.
 
-## Result artifacts
+## Интерпретация метрик
 
-This documentation package includes neutral copies of the published tables and recreated figures based on the same metric values:
+| Метрика | Смысл |
+|---|---|
+| `success_flag` | Факт успешного завершения миссии |
+| `coverage_ratio` | Степень покрытия целевой области |
+| `connectivity_coeff` | Сохранение связности роя |
+| `collisions_count` | Число столкновений или небезопасных сближений |
+| `total_energy_wh` | Оценка суммарного энергопотребления |
+| `avg_latency_ms` | Средняя задержка обмена |
+| `packet_loss_ratio` | Доля потерь сообщений |
+| `integral_score` | Агрегированная метрика эффективности |
 
-```text
-tables/
-├── validation_summary.csv
-├── architecture_run_distribution.csv
-├── scenario_run_distribution.csv
-├── success_rate_by_architecture.csv
-├── success_rate_by_scenario.csv
-└── success_rate_by_scenario_architecture.csv
+Метрика успешности используется как контрольная метрика работоспособности стенда. Для сравнения архитектур более информативны `connectivity_coeff`, `collisions_count`, `total_energy_wh` и `integral_score`.
 
-figures/
-├── fig_validation_outcomes.png
-├── fig_runs_by_architecture.png
-├── fig_runs_by_scenario.png
-├── fig_success_rate_by_architecture.png
-├── fig_success_rate_by_scenario.png
-└── fig_success_rate_heatmap.png
-```
+## Основные выводы по результатам
 
-## Metric interpretation
+- Серия из 720 запусков валидна: отсутствуют diagnostic rows, incomplete/timeout и runner timeout.
+- В сценариях S1-S5 все архитектуры показывают 100% успешности.
+- В сценарии S6 реактивная архитектура падает до 23.3% успешности.
+- `decpomdp_heuristic` показывает лучший `integral_score` и лучшую связность во всех сценариях.
+- `central_a_star` показывает лучшее энергопотребление во всех сценариях.
+- S6 является главным стресс-тестом стенда, так как объединяет препятствия, деградацию связи, отказы и вычислительную деградацию.
 
-The most important metrics are:
+## Ограничения
 
-- `success_flag` — whether the run completed according to the mission criteria.
-- `coverage_ratio` — how effectively the swarm covered the target area or mission objective.
-- `connectivity_coeff` — quality of swarm connectivity under normal and degraded communication.
-- `collisions_count` — number of detected collisions or unsafe contacts.
-- `total_energy_wh` — energy proxy accumulated during the run.
-- `integral_score` — aggregate normalized performance indicator used for architecture ranking.
+1. Основная серия выполнена в режиме `headless_fast_kinematic`, а не в полном Gazebo/DDS-контуре.
+2. В серии не использовалась обученная MARL-политика.
+3. Тестовый MARL checkpoint может применяться только для smoke/plumbing-проверки.
+4. Метрика времени выполнения миссии не используется как основной показатель из-за требований к надежной синхронизации start/complete-событий.
+5. Сырые сенсорные потоки не моделируются: используется агрегированное состояние среды.
 
-`success_rate` is useful as a health and validity indicator. For architecture comparison, the integral score, connectivity, energy, and collision metrics are more informative.
+## MARL proof mode
 
-## Main result highlights
-
-Across scenarios S1-S6, the `decpomdp_heuristic` architecture has the best integral score and best connectivity in the published mean-metric tables. `central_a_star` is the most energy-efficient architecture in the published best-architecture table. Scenario S6 is the most discriminative stress test: the reactive baseline drops to 23.3% success and has the weakest integral score.
-
-## MARL/proof mode note
-
-The current validated matrix should be treated as a deterministic diagnostic benchmark. A full learned-policy proof mode requires a trained checkpoint such as:
+Полный proof-режим требует обученного checkpoint:
 
 ```text
 models/marl/wkr_qmix_policy.pt
 ```
 
-A test checkpoint is suitable only for plumbing/smoke checks and must not be used as evidence of learned-policy performance.
+Проверка checkpoint:
 
-## License and usage
+```bash
+python3 scripts/inspect_marl_checkpoint.py \
+  --model models/marl/wkr_qmix_policy.pt \
+  --require-proof
+```
 
-Use this repository as a reproducible simulation test bench for swarm-control algorithms, regression checks, and architecture comparison under controlled scenarios.
+Запуск proof-эксперимента:
+
+```bash
+python3 scripts/run_wkr_experiments.py \
+  --full-proof \
+  --require-marl-model \
+  --marl-model-path models/marl/wkr_qmix_policy.pt \
+  --simulation-mode headless_fast_kinematic \
+  --parallel 1 \
+  --seeds 43:72 \
+  --output ~/sim_storage/swarm_full_proof
+```
+
+## Назначение
+
+Репозиторий можно использовать как воспроизводимый стенд для проверки алгоритмов управления роем, регрессионного тестирования, сравнения архитектур управления и подготовки следующего этапа — физически более детальной Gazebo/DDS-валидации.
