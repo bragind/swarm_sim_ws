@@ -1,0 +1,91 @@
+<?xml version="1.0" ?>
+<sdf version="1.7">
+  <world name="experimental_polygon">
+    <physics type="ode">
+      <max_step_size>0.01</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <scene>
+      <ambient>0.4 0.4 0.4 1</ambient>
+      <background>0.7 0.7 0.7 1</background>
+      <shadows>true</shadows>
+    </scene>
+
+    <!-- Ground (inline, avoids external model://ground_plane dependency) -->
+    <model name="ground_plane">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <link name="ground_link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>500 500</size>
+            </plane>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1.0</mu>
+                <mu2>1.0</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>500 500</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Static Obstacles -->
+    <model name="building_1">
+      <static>true</static>
+      <pose>10 5 0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>4 4 3</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>4 4 3</size></box></geometry>
+          <material><ambient>0.5 0.5 0.5 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="building_2">
+      <static>true</static>
+      <pose>-8 12 0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>6 3 4</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>6 3 4</size></box></geometry>
+          <material><ambient>0.4 0.6 0.4 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Light -->
+    <light name="sun" type="directional">
+      <pose>0 0 50 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+    </light>
+
+    <!-- Plugins -->
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"></plugin>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"></plugin>
+  </world>
+</sdf>

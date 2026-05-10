@@ -1,0 +1,32 @@
+# ROS 2 build artifacts
+build/
+install/
+log/
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local experiment outputs
+results/
+sim_storage/
+
+# ROS bags and logs
+*.bag
+*.db3
+*.log
+
+# Backup and OS files
+*.bak
+*.backup
+*~
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary container changes dump
+container_changes/

@@ -1,0 +1,58 @@
+# H:\work\swarm_sim_ws\.dockerignore
+
+# === Исключить логи и временные файлы ===
+src/log/
+src/**/*.log
+logs/
+*.log
+*.bag
+*.db
+
+# === Системные и редакторские файлы ===
+.git/
+.gitignore
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === Кеш и артефакты сборки ===
+build/
+install/
+log/
+*.pyc
+__pycache__/
+.ros/
+.gazebo/
+
+# === Данные симуляции (монтируются через volume) ===
+sim_storage/
+experiments/
+*.csv
+*.json
+
+# === Конфиги пользователя ===
+*.env
+*.local
+
+# Добавьте правила для исключения логов и артефактов сборки
+@'
+# === ROS2 / colcon build artifacts ===
+src/log/
+build/
+install/
+log/
+
+# === Логи и временные файлы ===
+**/*.log
+**/latest_build
+*.bag
+*.db
+
+# === Системные файлы ===
+.git/
+*.swp
+.DS_Store
+Thumbs.db
+'@ | Out-File -FilePath "H:\work\swarm_sim_ws\.dockerignore" -Encoding utf8 -Append

@@ -1,0 +1,31 @@
+architectures:
+  central_a_star:
+    coverage_efficiency_factor: 1.15
+    connectivity_recovery_factor: 0.78
+    collision_avoidance_factor: 0.82
+    energy_efficiency_factor: 0.88
+    failure_recovery_factor: 0.68
+  reactive:
+    coverage_efficiency_factor: 0.78
+    connectivity_recovery_factor: 0.76
+    collision_avoidance_factor: 0.90
+    energy_efficiency_factor: 0.82
+    failure_recovery_factor: 0.72
+  rule_dec:
+    coverage_efficiency_factor: 0.94
+    connectivity_recovery_factor: 0.92
+    collision_avoidance_factor: 0.86
+    energy_efficiency_factor: 0.90
+    failure_recovery_factor: 0.86
+  decpomdp_heuristic:
+    coverage_efficiency_factor: 1.02
+    connectivity_recovery_factor: 1.10
+    collision_avoidance_factor: 0.94
+    energy_efficiency_factor: 0.96
+    failure_recovery_factor: 1.06
+  marl_decpomdp:
+    coverage_efficiency_factor: 1.04
+    connectivity_recovery_factor: 1.12
+    collision_avoidance_factor: 0.95
+    energy_efficiency_factor: 0.97
+    failure_recovery_factor: 1.08

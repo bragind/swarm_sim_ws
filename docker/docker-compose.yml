@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  swarm_sim:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: ${BUILD_TARGET:-development}  # development | runtime
+      args:
+        # Аргументы для обхода проблем с сетью
+        BASE_IMAGE: ${BASE_IMAGE:-osrf/ros:humble-desktop-full}
+        REGISTRY_MIRROR: ${REGISTRY_MIRROR:-docker.io}
+        PYTORCH_INDEX: ${PYTORCH_INDEX:-https://download.pytorch.org/whl/cpu}
+    container_name: swarm_sim_container
+    volumes:
+      # Монтируем исходный код для быстрой итерации (не требует пересборки!)
+      - ../src:/home/swarm/src:cached
+      - ../scripts:/home/swarm/scripts:cached
+      - ../config:/home/swarm/config:ro
+      # Persistent storage для результатов экспериментов
+      - swarm_data:/home/swarm/sim_storage
+      # Опционально: монтируем кеш pip/colcon для ускорения сборок
+      - ~/.cache/pip:/home/swarm/.cache/pip
+      - ~/.colcon:/home/swarm/.colcon
+    environment:
+      - TZ=Europe/Moscow
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - GZ_SIM_HEADLESS=${GZ_SIM_HEADLESS:-1}
+      - QT_QPA_PLATFORM=offscreen
+      - DISPLAY=:0
+      # Переменные для устойчивой работы pip внутри контейнера
+      - PIP_TIMEOUT=120
+      - PIP_RETRIES=5
+    ports:
+      # VNC для визуальной отладки (опционально)
+      - "5900:5900"
+      # noVNC web-интерфейс
+      - "6080:6080"
+      # ROS2 DDS порты (для отладки межконтейнерной связи)
+      - "7400-7410:7400-7410/udp"
+    # Ресурсы: ограничиваем память, чтобы не "убить" сервер
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4'
+    # Restart policy для устойчивости
+    restart: unless-stopped
+    # Healthcheck для мониторинга состояния
+    healthcheck:
+      test: ["CMD", "ros2", "node", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  swarm_data:
+    driver: local
