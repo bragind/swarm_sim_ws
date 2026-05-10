@@ -1,123 +1,137 @@
-# Work Report: validation package for the swarm simulation stand
+# Отчет о проделанной работе
 
-## Objective
+## 1. Назначение отчета
 
-Prepare a clean, reproducible documentation and reporting package for a ROS 2-oriented simulation stand of autonomous swarm agents. The package describes how to run the stand, how the modules interact, which metrics are collected, and what the published diagnostic experiment set shows.
+Подготовлен комплект документации для симуляционного стенда роя автономных агентов. Отчет основан на фактических артефактах ветки `fix/wkr-experiment-validation`: таблицах из `docs/tables/wkr`, графиках из `docs/figures/wkr`, UML/data-flow описании стенда и описании экспериментальной методики.
 
-## Completed work
+## 2. Что сделано
 
-1. The repository structure was reviewed and the simulation-stand description was separated from academic wording.
-2. The documentation language was normalized so that the project is presented as an engineering simulation stand.
-3. An updated README was prepared with both local and container-based execution.
-4. A set of summary tables for the diagnostic matrix was generated.
-5. A set of figures was prepared to visualize run distribution and success rates.
-6. A UML/data-flow description of the simulation pipeline was prepared.
+1. Подготовлен  `README.md`.
+2. Описана архитектура симуляционного стенда в терминах ROS 2 pipeline.
+3. Добавлены команды локального запуска и запуска в Docker-контейнере.
+4. Зафиксированы режимы `quick`, `full-diagnostic` и `full-proof`.
+5. Перенесены и нормализованы таблицы диагностической серии.
+6. По реальным значениям таблицы средних метрик построены графики:
+   - связность;
+   - покрытие;
+   - столкновения;
+   - энергопотребление;
+   - интегральный показатель;
+   - успешность;
+   - валидность запусков.
+7. Подготовлено UML/data-flow описание взаимодействия модулей.
+8. Разделены диагностический режим и MARL proof-режим.
 
-## Experiment matrix
+## 3. Экспериментальная матрица
 
-The published matrix contains six scenarios, four architectures, and thirty seed values for each scenario/architecture pair:
+Полная серия включает:
 
 ```text
-6 x 4 x 30 = 720 runs
+6 сценариев × 4 архитектуры × 30 seed = 720 запусков
 ```
 
-Scenario classes:
+| Сценарий | Описание | Количество запусков |
+|---|---|---:|
+| S1 | Номинальная навигация при штатной связи и умеренной плотности препятствий | 120 |
+| S2 | Плотное препятственное окружение | 120 |
+| S3 | Деградация связи: потери пакетов и повышенная задержка | 120 |
+| S4 | Частичный отказ агентов в ходе миссии | 120 |
+| S5 | Вычислительная деградация и задержка принятия решений | 120 |
+| S6 | Комбинированный стресс: препятствия, связь, отказы и вычислительная деградация | 120 |
 
-- S1: nominal navigation.
-- S2: dense-obstacle environment.
-- S3: communication degradation.
-- S4: partial agent failure.
-- S5: computational degradation.
-- S6: combined stress.
+Архитектуры:
 
-Architectures:
+| Код | Назначение |
+|---|---|
+| `central_a_star` | Централизованное планирование |
+| `reactive` | Реактивное локальное управление |
+| `rule_dec` | Децентрализованный rule-based алгоритм |
+| `decpomdp_heuristic` | Dec-POMDP + эвристическая коррекция |
 
-- Central-A*.
-- Reactive control.
-- Rule-based decentralized control.
-- Dec-POMDP with heuristic correction.
+## 4. Сводка валидности
 
-## Validation summary
-
-| Metric | Value |
+| Показатель | Значение |
 |---|---:|
-| Total runs | 720 |
+| Всего запусков | 720 |
 | valid_success | 697 |
 | valid_failure | 23 |
 | diagnostic rows | 0 |
 | incomplete_or_timeout | 0 |
 | runner_timeout_reached | 0 |
-| Overall success rate | 96.8% |
+| Общая успешность | 96.8 % |
 
-From the perspective of runner timeouts and malformed diagnostic rows, the result set is clean.
 
-## Tables
 
-- `../tables/validation_summary.csv`
-- `../tables/architecture_run_distribution.csv`
-- `../tables/scenario_run_distribution.csv`
-- `../tables/success_rate_by_architecture.csv`
-- `../tables/success_rate_by_scenario.csv`
-- `../tables/success_rate_by_scenario_architecture.csv`
+Вывод: набор результатов пригоден для анализа, так как отсутствуют неполные запуски, диагностические строки и внешние timeout-состояния runner-а.
 
-## Figures
+## 5. Успешность по сценариям
 
-### 1. Validation outcomes
+![Успешность выполнения миссии](../docs/figures/wkr/optional/fig_success_rate_by_architecture.png)
 
-![Validation outcomes](../figures/fig_validation_outcomes.png)
+В сценариях S1-S5 все архитектуры достигают 100% успешности. В сценарии S6 реактивный алгоритм снижается до 23.3%, что показывает чувствительность простой локальной стратегии к комбинированному стрессу.
 
-The chart shows that the vast majority of runs ended as valid successes, while valid failures occupy only a small fraction of the full matrix.
+## 6. Коэффициент связности
 
-### 2. Runs per architecture
+![Коэффициент связности](../docs/figures/wkr/fig_connectivity_by_architecture.png)
 
-![Runs per architecture](../figures/fig_runs_by_architecture.png)
+`decpomdp_heuristic` показывает наибольшую среднюю связность во всех сценариях. Наиболее сильная деградация связности наблюдается в S3 и S6, где явно моделируются ухудшение связи и комбинированные неблагоприятные факторы.
 
-Each architecture was executed the same number of times, which makes direct comparison fair.
+## 7. Коэффициент покрытия
 
-### 3. Runs per scenario
+![Коэффициент покрытия](../docs/figures/wkr/fig_coverage_by_architecture.png)
 
-![Runs per scenario](../figures/fig_runs_by_scenario.png)
+Метрика покрытия находится в близком диапазоне для большинства архитектур. Это означает, что в headless-кинематической модели все основные архитектуры способны достигать целевой области покрытия, а различия лучше проявляются по связности, безопасности, энергии и интегральной оценке.
 
-Each scenario was executed the same number of times. This makes the experiment matrix balanced.
+## 8. Число столкновений
 
-### 4. Success rate by architecture
+![Число столкновений](../docs/figures/wkr/fig_collisions_boxplot.png)
 
-![Success rate by architecture](../figures/fig_success_rate_by_architecture.png)
+Минимальные значения столкновений демонстрирует `decpomdp_heuristic`: в S1, S3, S4 и S5 среднее число столкновений равно 0. В S6 столкновения растут у всех архитектур, но реактивная архитектура показывает худшее значение.
 
-Three architectures achieve 100% success in the published diagnostic matrix. The reactive baseline shows a lower aggregate success rate due to its behavior in the S6 stress scenario.
+## 9. Энергопотребление
 
-### 5. Success rate by scenario
+![Энергопотребление](../docs/figures/wkr/fig_energy_boxplot.png)
 
-![Success rate by scenario](../figures/fig_success_rate_by_scenario.png)
+`central_a_star` является наиболее энергоэффективной архитектурой во всех сценариях. Это инженерный компромисс: Dec-POMDP + heuristic тратит больше энергии, но обеспечивает лучшую связность и лучший интегральный показатель.
 
-Scenarios S1-S5 do not cause validation problems. The main drop is observed in S6, which acts as the primary stress test of the stand.
+## 10. Интегральный показатель эффективности
 
-### 6. Scenario/architecture success heatmap
+![Интегральный показатель](../docs/figures/wkr/fig_integral_score.png)
 
-![Success rate heatmap](../figures/fig_success_rate_heatmap.png)
+`decpomdp_heuristic` имеет лучший интегральный показатель во всех сценариях S1-S6. Особенно важно, что в S6 он сохраняет значение 0.8033, тогда как реактивный алгоритм падает до 0.2736.
 
-The heatmap makes it clear that the only problematic pair is the combination of scenario S6 and the reactive architecture. All other scenario/architecture pairs show full success.
+## 11. Ключевые результаты по таблице средних метрик
 
-## Main observations
+| Сценарий | Лучший integral_score | Лучший connectivity | Лучший energy |
+|---|---|---|---|
+| S1 | `decpomdp_heuristic` | `decpomdp_heuristic` | `central_a_star` |
+| S2 | `decpomdp_heuristic` | `decpomdp_heuristic` | `central_a_star` |
+| S3 | `decpomdp_heuristic` | `decpomdp_heuristic` | `central_a_star` |
+| S4 | `decpomdp_heuristic` | `decpomdp_heuristic` | `central_a_star` |
+| S5 | `decpomdp_heuristic` | `decpomdp_heuristic` | `central_a_star` |
+| S6 | `decpomdp_heuristic` | `decpomdp_heuristic` | `central_a_star` |
 
-1. All architectures are stable in scenarios S1-S5.
-2. In scenario S6, the reactive baseline drops to 23.3% success, while the other architectures remain at 100%.
-3. The diagnostic matrix is balanced: each architecture and each scenario has the same number of runs.
-4. The result set is clean in terms of runner timeouts and malformed diagnostic rows.
-5. Scenario S6 is the key stress scenario because it combines obstacles, communication degradation, failures, and computational degradation.
+## 12. Архитектурная интерпретация
 
-## Engineering interpretation
+Результаты показывают, что простая успешность выполнения миссии недостаточно чувствительна для сравнения архитектур: в S1-S5 она близка к насыщению. Поэтому основное сравнение следует вести по связности, столкновениям, энергопотреблению и интегральному показателю.
 
-The current package should be treated as a deterministic benchmark for checking the simulation pipeline, the data-collection contour, and the comparative behavior of control architectures. It is suitable for regression testing and algorithmic comparison in headless kinematic mode. Claims that depend on realistic dynamics, middleware timing, sensor behavior, and actuator behavior require a separate stage of more physically faithful validation.
+Вероятностно-эвристический контур `decpomdp_heuristic` обеспечивает наиболее устойчивое поведение, поскольку учитывает:
+- качество связности;
+- риск столкновений;
+- энергетическое состояние;
+- деградацию связи;
+- отказ части агентов.
 
-## Delivered materials
+Централизованный `central_a_star` остается сильным baseline по энергопотреблению, но не дает максимальной связности. Реактивный baseline является самым слабым в комбинированном стресс-сценарии.
 
-```text
-README.md
-README_RU.md
-reports/WORK_REPORT.md
-reports/WORK_REPORT_RU.md
-docs/SIMULATION_STAND_UML.md
-tables/*.csv
-figures/*.png
-```
+## 13. Ограничения
+
+1. Серия выполнена в режиме `headless_fast_kinematic`; результаты не заменяют полноценную Gazebo/DDS-валидацию.
+2. Обученная MARL-политика не использовалась в доказательной серии.
+3. `models/marl/test_policy.pt` допустим только для smoke/plumbing-проверок.
+4. Сырые сенсорные потоки не моделировались; использовалось агрегированное состояние среды.
+5. Время выполнения миссии не используется как основной показатель из-за требований к надежной фиксации start/complete-событий.
+
+## 14. Вывод
+
+Подготовлен воспроизводимый симуляционный стенд с валидированной диагностической серией из 720 запусков. Пайплайн логирования, валидации, анализа и построения графиков работает корректно. Данные подтверждают преимущество `decpomdp_heuristic` по связности и интегральной эффективности, а также энергоэффективность `central_a_star`. Следующий инженерный этап — обучение proof-valid MARL checkpoint и физически более детальная Gazebo/DDS-валидация.
